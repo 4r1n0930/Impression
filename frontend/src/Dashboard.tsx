@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from "react-router-dom";
 import axios from 'axios';
 import './Dashboard.css';
 
@@ -49,10 +50,9 @@ const Dashboard: React.FC = () => {
       <main className="dashboard-main">
         <div className="create-interview-container">
           <h2 style={{ marginBottom: '20px' }}>Welcome, {user?.email}!</h2>
-          <button className="create-interview-button">
-            <span className="plus-icon">+</span>
-            Create Interview
-          </button>
+          <p className="create-interview-button">
+            <Link to="/RoomConfig">Create Interview</Link>
+          </p>
         </div>
       </main>
     </div>
