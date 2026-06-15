@@ -4,6 +4,8 @@ import Login from './Login';
 import Signup from './Signup';
 import ForgotPassword from './ForgotPassword';
 import ResetPassword from './ResetPassword';
+import Dashboard from './Dashboard';
+import ProtectedRoute from './ProtectedRoute';
 
 const App: React.FC = () => {
   return (
@@ -13,6 +15,14 @@ const App: React.FC = () => {
         <Route path="/signup" element={<Signup />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password/:token" element={<ResetPassword />} />
+        <Route 
+          path="/dashboard" 
+          element={
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>
+          } 
+        />
         
         {/* Redirect to login by default */}
         <Route path="/" element={<Navigate to="/login" />} />

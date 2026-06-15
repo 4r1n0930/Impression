@@ -26,7 +26,7 @@ const Login: React.FC = () => {
       localStorage.setItem("token", token);
       
       console.log("Login successful", user);
-      // window.location.href = "/dashboard";
+      window.location.href = "/dashboard";
     } catch (err: any) {
       setError(
         err.response?.data?.message || "An error occurred during login"
@@ -52,7 +52,7 @@ const Login: React.FC = () => {
       localStorage.setItem("token", token);
 
       console.log("Google login successful", user);
-      // window.location.href = "/dashboard";
+      window.location.href = "/dashboard";
     } catch (err: any) {
       setError("Google authentication failed");
     }

@@ -34,7 +34,7 @@ const Signup: React.FC = () => {
       
       setSuccess("Account created successfully!");
       console.log("Signup successful", user);
-      // window.location.href = "/dashboard";
+      window.location.href = "/dashboard";
     } catch (err: any) {
       setError(
         err.response?.data?.message || "An error occurred during signup"
