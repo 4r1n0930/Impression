@@ -50,7 +50,7 @@ router.post("/register",upload.single("profilePhoto"),
       }
 
     );
-    console.log("Image URL:", result.secure_url);
+    //console.log("Image URL:", result.secure_url);
 
     profilePhoto = result.secure_url;
 
@@ -79,6 +79,7 @@ router.post("/register",upload.single("profilePhoto"),
   }
 }
 );
+
 
 // @desc    Authenticate user & get token
 // @route   POST /auth/login
@@ -142,7 +143,7 @@ router.post("/google", async (req, res) => {
       if (user) {
         // Link Google ID to existing account
         user.googleId = sub;
-        if (!user.avatar) user.avatar = picture; // Update avatar if missing
+        if (!user.profilePhoto) user.profilePhoto = picture; // Update profile photo if missing
         await user.save();
       } else {
         // Create truly new user
@@ -150,7 +151,7 @@ router.post("/google", async (req, res) => {
           googleId: sub,
           email,
           name,
-          avatar: picture,
+          profilePhoto: picture,
         });
       }
     }

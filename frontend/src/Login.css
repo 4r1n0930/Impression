@@ -1,3 +1,15 @@
+:root {
+  --bg-color: #0f172a;
+  --card-bg: #1e293b;
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --accent-color: #3b82f6;
+  --accent-hover: #2563eb;
+  --input-bg: #334155;
+  --input-border: #475569;
+  --error-color: #ef4444;
+}
+
 .login-container {
   min-height: 100vh;
   display: flex;
