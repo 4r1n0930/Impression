@@ -76,7 +76,7 @@ const Dashboard: React.FC = () => {
       <main className="dashboard-main">
         <div className="create-interview-container">
           <h2 style={{ marginBottom: '20px' }}>Welcome, {user?.email}!</h2>
-          <Link to="/RoomConfig" className="create-interview-button" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Link to="/roomConfig" className="create-interview-button" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <span className="plus-icon">+</span>
             Create Interview
           </Link>
