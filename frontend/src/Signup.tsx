@@ -14,6 +14,7 @@ const Signup: React.FC = () => {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
+  const [profilePhoto, setProfilePhoto] = useState<File | null>(null);
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,9 +28,21 @@ const Signup: React.FC = () => {
     setLoading(true);
 
     try {
+      const formData = new FormData();
+      formData.append("name", name);
+      formData.append("email", email);
+      formData.append("password", password);
+      if (profilePhoto) {
+        formData.append("profilePhoto", profilePhoto);
+      }
       await axios.post(
         "http://localhost:5000/auth/register",
-        { name, email, password }
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        }
       );
 
       setSuccess("Verification code sent to your email!");
@@ -179,6 +192,19 @@ const Signup: React.FC = () => {
               className="form-input"
               required
               disabled={loading}
+            />
+          </div>
+          <div className="form-group">
+          <label htmlFor="profilePhoto">Profile Photo</label>
+          <input
+            type="file"
+            id="profilePhoto"
+            accept="image/*"
+            onChange={(e) => {
+              if (e.target.files) {
+                setProfilePhoto(e.target.files[0]);
+              }
+            }}
             />
           </div>
 

@@ -22,9 +22,9 @@ const Login: React.FC = () => {
         "http://localhost:5000/auth/login",
         { email, password }
       );
-
       const { token, user } = res.data;
       localStorage.setItem("token", token);
+      localStorage.setItem("user", JSON.stringify(user));
       
       console.log("Login successful", user);
       window.location.href = "/";
@@ -55,6 +55,7 @@ const Login: React.FC = () => {
 
       const { token, user } = res.data;
       localStorage.setItem("token", token);
+      localStorage.setItem("user", JSON.stringify(user));
 
       console.log("Google login successful", user);
       window.location.href = "/";
