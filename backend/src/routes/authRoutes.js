@@ -1,8 +1,12 @@
 import express from "express";
+import multer from "multer";
 import { OAuth2Client } from "google-auth-library";
+import upload from "../middleware/upload.js";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import nodemailer from "nodemailer";
+import cloudinary from "../config/cloudinary.js";
+import fs from "fs";
 
 import User from "../models/User.js";
 
@@ -25,7 +29,8 @@ const generateToken = (user) => {
 
 // @desc    Register a new user
 // @route   POST /auth/register
-router.post("/register", async (req, res) => {
+router.post("/register",upload.single("profilePhoto"),
+  async (req, res) => {
   try {
     const { name, email, password } = req.body;
 
@@ -35,11 +40,29 @@ router.post("/register", async (req, res) => {
       return res.status(400).json({ message: "User already exists" });
     }
 
+    let profilePhoto = "";
+
+    if (req.file) {
+      const result = await cloudinary.uploader.upload(
+      req.file.path,
+      {
+        folder: "profile_photos",
+      }
+
+    );
+    //console.log("Image URL:", result.secure_url);
+
+    profilePhoto = result.secure_url;
+
+    fs.unlinkSync(req.file.path);
+  }
+
     const user = await User.create({
-      name,
-      email,
-      password,
-    });
+    name,
+    email,
+    password,
+    profilePhoto,
+});
     const token = generateToken(user);
     res.status(201).json({
       message: "User registered successfully",
@@ -48,12 +71,15 @@ router.post("/register", async (req, res) => {
         id: user._id,
         name: user.name,
         email: user.email,
+        profilePhoto: user.profilePhoto,
       },
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
-});
+}
+);
+
 
 // @desc    Authenticate user & get token
 // @route   POST /auth/login
@@ -73,6 +99,8 @@ router.post("/login", async (req, res) => {
           id: user._id,
           name: user.name,
           email: user.email,
+          profilePhoto: user.profilePhoto,
+          
         },
       });
     } else {
@@ -115,7 +143,7 @@ router.post("/google", async (req, res) => {
       if (user) {
         // Link Google ID to existing account
         user.googleId = sub;
-        if (!user.avatar) user.avatar = picture; // Update avatar if missing
+        if (!user.profilePhoto) user.profilePhoto = picture; // Update profile photo if missing
         await user.save();
       } else {
         // Create truly new user
@@ -123,7 +151,7 @@ router.post("/google", async (req, res) => {
           googleId: sub,
           email,
           name,
-          avatar: picture,
+          profilePhoto: picture,
         });
       }
     }
