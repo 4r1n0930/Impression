@@ -51,7 +51,7 @@ const Dashboard: React.FC = () => {
         <div className="create-interview-container">
           <h2 style={{ marginBottom: '20px' }}>Welcome, {user?.email}!</h2>
           <p className="create-interview-button">
-            <Link to="/RoomConfig">Create Interview</Link>
+            <Link to="/roomConfig">Create Interview</Link>
           </p>
         </div>
       </main>

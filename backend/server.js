@@ -5,6 +5,7 @@ import connectDB from "./src/config/db.js";
 
 import authRoutes from "./src/routes/authRoutes.js";
 import dashboardRoutes from "./src/routes/dashboardRoutes.js";
+import livekitRoutes from "./src/routes/livekitRoutes.js";
 
 dotenv.config();
 
@@ -20,7 +21,7 @@ app.use(express.json());
 // Routes
 app.use("/auth", authRoutes);
 app.use("/dashboard", dashboardRoutes);
-app.use("/api/livekit", livekitRoutes);
+app.use("/livekit", livekitRoutes);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
