@@ -1,34 +1,30 @@
 import React, { useEffect, useState, useRef } from 'react';
-//import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import axios from 'axios';
 import './RoomConfig.css';
 
 const RoomConfig: React.FC = () => {
-  const [meetingName, setMeetingName] = useState("Interview");
+  const navigate = useNavigate();
+  const [meetingName, setMeetingName] = useState("Interview-" + Math.floor(Math.random() * 1000));
   const [participants, setParticipants] = useState(2);
   const [meetingType, setMeetingType] = useState("Strict");
-  const [myName, setMyName]=useState("User")
+  const [allowedParticipants, setAllowedParticipants] = useState("");
+  const [myName, setMyName] = useState("");
   const [micStatus, setMicStatus] = useState("Not Checked");
   const [cameraStatus, setCameraStatus] = useState("Not Checked");
-
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
-  const getLivekitToken = async (
-  roomName: string,
-  userName: string
-) => {
-  const { data } = await axios.post(
-    "http://localhost:5000/livekit/token",
-    {
-      roomName,
-      userName,
+  useEffect(() => {
+    const userStr = localStorage.getItem("user");
+    if (userStr) {
+      const user = JSON.parse(userStr);
+      setMyName(user.name);
     }
-  );
-
-  return data.token;
-};
+  }, []);
 
   const increaseParticipants = () => {
     if (participants < 6) {
@@ -47,9 +43,7 @@ const RoomConfig: React.FC = () => {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: true,
       });
-
       setMicStatus("Microphone Working");
-
       stream.getTracks().forEach((track) => track.stop());
     } catch (error) {
       setMicStatus("Microphone Access Denied");
@@ -61,13 +55,10 @@ const RoomConfig: React.FC = () => {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: true,
       });
-
       streamRef.current = stream;
-
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
       }
-
       setCameraStatus("Camera Working");
     } catch (error) {
       setCameraStatus("Camera Access Denied");
@@ -80,14 +71,39 @@ const RoomConfig: React.FC = () => {
     };
   }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoading(true);
+    setError("");
 
-    console.log({
-      meetingName,
-      participants,
-      meetingType,
-    });
+    try {
+      const userStr = localStorage.getItem("user");
+      const user = userStr ? JSON.parse(userStr) : null;
+      
+      const participantsList = allowedParticipants
+        .split(",")
+        .map(p => p.trim())
+        .filter(p => p !== "");
+
+      // 1. Create room on backend
+      await axios.post("http://localhost:5000/livekit/create-room", {
+        roomName: meetingName,
+        allowedParticipants: participantsList,
+        creator: user?.email || myName,
+      });
+
+      // 2. Redirect to the room
+      navigate(`/room/${meetingName}`, { 
+        state: { 
+          userName: myName,
+          email: user?.email
+        } 
+      });
+    } catch (err: any) {
+      setError(err.response?.data?.message || "Failed to create meeting");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -98,6 +114,8 @@ const RoomConfig: React.FC = () => {
         </div>
 
         <form onSubmit={handleSubmit} className="room-config-form">
+          {error && <div className="error-message" style={{color: 'red', textAlign: 'center'}}>{error}</div>}
+          
           {/* Meeting Name */}
           <div className="form-group">
             <label>Meeting Name</label>
@@ -107,8 +125,10 @@ const RoomConfig: React.FC = () => {
               value={meetingName}
               onChange={(e) => setMeetingName(e.target.value)}
               placeholder="Enter meeting name"
+              required
             />
           </div>
+
           <div className="form-group">
             <label>Your Name</label>
             <input
@@ -116,11 +136,25 @@ const RoomConfig: React.FC = () => {
               type="text"
               value={myName}
               onChange={(e) => setMyName(e.target.value)}
-              placeholder="Enter meeting name"
+              placeholder="Your display name"
+              required
             />
           </div>
 
-          {/* Participants */}
+          {/* Allowed Participants */}
+          <div className="form-group">
+            <label>Allowed Interviewers (Emails, comma separated)</label>
+            <input
+              className="form-input"
+              type="text"
+              value={allowedParticipants}
+              onChange={(e) => setAllowedParticipants(e.target.value)}
+              placeholder="e.g. john@example.com, alice@example.com"
+            />
+            <span className="help-text">Only these people can join the interview.</span>
+          </div>
+
+          {/* Participants Count */}
           <div className="form-group">
             <label>Number of Participants</label>
             <div className="participant-control">
@@ -132,9 +166,7 @@ const RoomConfig: React.FC = () => {
               >
                 -
               </button>
-
               <span className="participant-count">{participants}</span>
-
               <button
                 type="button"
                 className="counter-button"
@@ -161,7 +193,6 @@ const RoomConfig: React.FC = () => {
           </div>
 
           <div className="media-check-section">
-            {/* Microphone Check */}
             <div className="form-group">
               <button
                 type="button"
@@ -175,7 +206,6 @@ const RoomConfig: React.FC = () => {
               </p>
             </div>
 
-            {/* Camera Check */}
             <div className="form-group">
               <button
                 type="button"
@@ -187,7 +217,6 @@ const RoomConfig: React.FC = () => {
               <p className={`status-text ${cameraStatus === "Camera Working" ? "success" : cameraStatus.includes("Denied") ? "error" : ""}`}>
                 {cameraStatus}
               </p>
-
               <video
                 ref={videoRef}
                 autoPlay
@@ -198,8 +227,8 @@ const RoomConfig: React.FC = () => {
             </div>
           </div>
 
-          <button type="submit" className="submit-button" onClick={async()=>{console.log(await(getLivekitToken(meetingName,myName)))}}>
-            Create Meeting
+          <button type="submit" className="submit-button" disabled={loading}>
+            {loading ? "Creating..." : "Create Meeting"}
           </button>
         </form>
       </div>
