@@ -2,10 +2,11 @@ import React, { useState } from "react";
 import { GoogleLogin} from "@react-oauth/google";
 import type { CredentialResponse } from "@react-oauth/google";
 import axios from "axios";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import "./Login.css";
 
 const Login: React.FC = () => {
+  const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -26,11 +27,15 @@ const Login: React.FC = () => {
       localStorage.setItem("user", JSON.stringify(user));
       
       console.log("Login successful", user);
-      window.location.href = "/dashboard";
+      window.location.href = "/";
     } catch (err: any) {
-      setError(
-        err.response?.data?.message || "An error occurred during login"
-      );
+      if (err.response?.data?.notVerified) {
+        navigate("/verify-email", { state: { email } });
+      } else {
+        setError(
+          err.response?.data?.message || "An error occurred during login"
+        );
+      }
     } finally {
       setLoading(false);
     }
@@ -53,7 +58,7 @@ const Login: React.FC = () => {
       localStorage.setItem("user", JSON.stringify(user));
 
       console.log("Google login successful", user);
-      window.location.href = "/dashboard";
+      window.location.href = "/";
     } catch (err: any) {
       setError("Google authentication failed");
     }

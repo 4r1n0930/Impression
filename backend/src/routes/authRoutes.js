@@ -35,6 +35,10 @@ router.post("/register",upload.single("profilePhoto"),
   try {
     const { name, email, password } = req.body;
 
+    if (!name || !email || !password) {
+      return res.status(400).json({ message: "Please provide all required fields" });
+    }
+
     const userExists = await User.findOne({ email });
 
     if (userExists) {
@@ -45,28 +49,85 @@ router.post("/register",upload.single("profilePhoto"),
 
     if (req.file) {
       const result = await cloudinary.uploader.upload(
-      req.file.path,
-      {
-        folder: "profile_photos",
-      }
+        req.file.path,
+        {
+          folder: "profile_photos",
+        }
+      );
+      profilePhoto = result.secure_url;
+      fs.unlinkSync(req.file.path);
+    }
 
-    );
-    //console.log("Image URL:", result.secure_url);
-
-    profilePhoto = result.secure_url;
-
-    fs.unlinkSync(req.file.path);
-  }
+    // Generate 6-digit verification code
+    const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const verificationCodeExpires = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
 
     const user = await User.create({
-    name,
-    email,
-    password,
-    profilePhoto,
-});
-    const token = generateToken(user);
+      name,
+      email,
+      password,
+      profilePhoto,
+      verificationCode,
+      verificationCodeExpires,
+    });
+
+    // Send verification email
+    console.log(`Verification code for ${email}: ${verificationCode}`);
+
+    if (process.env.SMTP_HOST) {
+      const transporter = nodemailer.createTransport({
+        host: process.env.SMTP_HOST,
+        port: process.env.SMTP_PORT,
+        auth: {
+          user: process.env.SMTP_USER,
+          pass: process.env.SMTP_PASS,
+        },
+      });
+
+      await transporter.sendMail({
+        to: user.email,
+        subject: "Email Verification Code",
+        text: `Your verification code is: ${verificationCode}. It will expire in 24 hours.`,
+      });
+    }
     res.status(201).json({
-      message: "User registered successfully",
+      message: "User registered. Please verify your email.",
+      email: user.email,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// @desc    Verify email
+// @route   POST /auth/verify-email
+router.post("/verify-email", async (req, res) => {
+  try {
+    const { email, code } = req.body;
+
+    if (!email || !code) {
+      return res.status(400).json({ message: "Please provide email and code" });
+    }
+
+    const user = await User.findOne({
+      email,
+      verificationCode: code,
+      verificationCodeExpires: { $gt: Date.now() },
+    });
+
+    if (!user) {
+      return res.status(400).json({ message: "Invalid or expired verification code" });
+    }
+
+    user.isVerified = true;
+    user.verificationCode = undefined;
+    user.verificationCodeExpires = undefined;
+    await user.save();
+
+    const token = generateToken(user);
+
+    res.json({
+      message: "Email verified successfully",
       token,
       user: {
         id: user._id,
@@ -88,9 +149,20 @@ router.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
 
+    if (!email || !password) {
+      return res.status(400).json({ message: "Please provide email and password" });
+    }
+
     const user = await User.findOne({ email }).select("+password");
 
-    if (user && (await user.comparePassword(password))) {
+    if (user && user.password && (await user.comparePassword(password))) {
+      if (!user.isVerified) {
+        return res.status(401).json({ 
+          message: "Please verify your email before logging in",
+          notVerified: true 
+        });
+      }
+
       const token = generateToken(user);
 
       res.json({
@@ -229,6 +301,12 @@ router.post("/forgot-password", async (req, res) => {
 // @route   POST /auth/reset-password/:token
 router.post("/reset-password/:token", async (req, res) => {
   try {
+    const { password } = req.body;
+
+    if (!password) {
+      return res.status(400).json({ message: "Please provide a new password" });
+    }
+
     const resetPasswordToken = crypto
       .createHash("sha256")
       .update(req.params.token)
@@ -244,7 +322,7 @@ router.post("/reset-password/:token", async (req, res) => {
     }
 
     // Set new password
-    user.password = req.body.password;
+    user.password = password;
     user.resetPasswordToken = undefined;
     user.resetPasswordExpires = undefined;
 
@@ -316,6 +394,60 @@ router.put("/update-name", protect, async (req, res) => {
     res.status(500).json({
       message: error.message,
     });
+  }
+});
+
+// @desc    Resend verification code
+// @route   POST /auth/resend-code
+router.post("/resend-code", async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ message: "Please provide an email" });
+    }
+
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    if (user.isVerified) {
+      return res.status(400).json({ message: "Email is already verified" });
+    }
+
+    // Generate new 6-digit verification code
+    const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const verificationCodeExpires = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
+
+    user.verificationCode = verificationCode;
+    user.verificationCodeExpires = verificationCodeExpires;
+    await user.save();
+
+    // Send verification email
+    console.log(`New verification code for ${email}: ${verificationCode}`);
+
+    if (process.env.SMTP_HOST) {
+      const transporter = nodemailer.createTransport({
+        host: process.env.SMTP_HOST,
+        port: process.env.SMTP_PORT,
+        auth: {
+          user: process.env.SMTP_USER,
+          pass: process.env.SMTP_PASS,
+        },
+      });
+
+      await transporter.sendMail({
+        to: user.email,
+        subject: "New Email Verification Code",
+        text: `Your new verification code is: ${verificationCode}. It will expire in 24 hours.`,
+      });
+    }
+
+    res.json({ message: "New verification code sent to your email" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 });
 

@@ -5,7 +5,7 @@ import dns from 'node:dns';
 import connectDB from "./src/config/db.js";
 import authRoutes from "./src/routes/authRoutes.js";
 import dashboardRoutes from "./src/routes/dashboardRoutes.js";
-import livekitRoutes from "./src/routes/livekit.js";
+import livekitRoutes from "./src/routes/livekitRoutes.js";
 import cloudinary from "./src/config/cloudinary.js";
 
 dotenv.config();
@@ -30,7 +30,7 @@ app.use("/uploads", express.static("src/uploads"));
 // Routes
 app.use("/auth", authRoutes);
 app.use("/dashboard", dashboardRoutes);
-app.use("/api/livekit", livekitRoutes);
+app.use("/livekit", livekitRoutes);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {

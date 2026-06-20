@@ -7,7 +7,7 @@ const router = express.Router();
 // @desc    Redirect to frontend dashboard (UI)
 // @access  Public (Frontend handles UI protection)
 router.get("/go", (req, res) => {
-  res.redirect(`${process.env.FRONTEND_URL}/dashboard`);
+  res.redirect(`${process.env.FRONTEND_URL}/`);
 });
 
 // @route   GET /dashboard/data
