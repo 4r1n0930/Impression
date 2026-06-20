@@ -178,13 +178,17 @@ const Dashboard: React.FC = () => {
                           }
                         );
 
-                        setUser({
-                          ...user,
-                          name: res.data.name,
-                        });
+                       const updatedUser = {
+                       ...user,
+                       name: res.data.name,
+                      };
 
-                        alert("Name updated successfully!");
+                      setUser(updatedUser);
 
+                      // localStorage bhi update karo
+                     localStorage.setItem("user", JSON.stringify(updatedUser));
+
+alert("Name updated successfully!");
                       } catch (error) {
                         console.error(error);
                         alert("Failed to update name");

@@ -143,13 +143,13 @@ const RoomConfig: React.FC = () => {
 
           {/* Allowed Participants */}
           <div className="form-group">
-            <label>Allowed Interviewers (Emails, comma separated)</label>
+            <label>Password</label>
             <input
               className="form-input"
               type="text"
               value={allowedParticipants}
               onChange={(e) => setAllowedParticipants(e.target.value)}
-              placeholder="e.g. john@example.com, alice@example.com"
+              placeholder="enter password"
             />
             <span className="help-text">Only these people can join the interview.</span>
           </div>
