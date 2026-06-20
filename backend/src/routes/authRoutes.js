@@ -7,6 +7,7 @@ import crypto from "crypto";
 import nodemailer from "nodemailer";
 import cloudinary from "../config/cloudinary.js";
 import fs from "fs";
+import protect from "../middleware/authMiddleware.js";
 
 import User from "../models/User.js";
 
@@ -330,6 +331,69 @@ router.post("/reset-password/:token", async (req, res) => {
     res.json({ message: "Password reset successful" });
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+});
+router.put(
+  "/update-profile-photo",
+  protect,
+  upload.single("profilePhoto"),
+  async (req, res) => {
+    try {
+      let profilePhoto = "";
+
+      if (req.file) {
+        const result = await cloudinary.uploader.upload(
+          req.file.path,
+          {
+            folder: "profile_photos",
+          }
+        );
+
+        profilePhoto = result.secure_url;
+
+        fs.unlinkSync(req.file.path);
+      }
+
+      const user = await User.findByIdAndUpdate(
+        req.user.userId,
+        { profilePhoto },
+        { new: true }
+      );
+
+      res.json({
+        message: "Profile photo updated",
+        profilePhoto: user.profilePhoto,
+      });
+    } catch (error) {
+      res.status(500).json({
+        message: error.message,
+      });
+    }
+  }
+);
+router.put("/update-name", protect, async (req, res) => {
+  try {
+    console.log("Update name route hit");
+    console.log(req.body);
+    console.log(req.user);
+    const { name } = req.body;
+
+    const user = await User.findByIdAndUpdate(
+      req.user.userId,
+      { name },
+      { new: true }
+    );
+
+    res.json({
+      message: "Name updated successfully",
+      name: user.name,
+    });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      message: error.message,
+    });
   }
 });
 
