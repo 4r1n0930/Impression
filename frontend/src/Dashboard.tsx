@@ -8,6 +8,8 @@ const Dashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  const [showNameModal, setShowNameModal] = useState(false);
+  const [newName, setNewName] = useState("");
 
   const navigate = useNavigate();
 
@@ -165,7 +167,7 @@ const Dashboard: React.FC = () => {
 
                       try {
                         const token = localStorage.getItem("token");
-                        
+
                         const res = await axios.put(
                           "http://localhost:5000/auth/update-name",
                           { name: newName },
@@ -243,12 +245,39 @@ const Dashboard: React.FC = () => {
       </header>
 
       <main className="dashboard-main">
-        <div className="create-interview-container">
-          <h2 style={{ marginBottom: '20px' }}>Welcome, {user?.email}!</h2>
-          <Link to="/roomConfig" className="create-interview-button" style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <span className="plus-icon">+</span>
-            Create Interview
-          </Link>
+        <div className="dashboard-content">
+
+          <div className="welcome-card">
+            <h1 className="welcome-title">
+              Welcome back, {user?.name || user?.email?.split("@")[0]} 👋
+            </h1>
+
+            <p className="welcome-subtitle">
+              Create and manage AI mock interviews with ease.
+            </p>
+          </div>
+
+          <div className="action-card">
+            <Link
+              to="/roomConfig"
+              className="create-interview-button"
+              style={{
+                textDecoration: "none",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center"
+              }}
+            >
+              <span className="plus-icon">+</span>
+              Create Interview
+            </Link>
+          </div>
+
+          <div className="recent-card">
+            <h3>Recent Activity</h3>
+            <p>No interviews yet. Create your first interview.</p>
+          </div>
+
         </div>
       </main>
     </div>
