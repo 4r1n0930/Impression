@@ -1,6 +1,8 @@
 import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import ProtectedRoute from './ProtectedRoute';
+import Profile from './Profile';
+
 
 // Lazy load components
 const Login = lazy(() => import('./Login'));
@@ -28,6 +30,7 @@ const App: React.FC = () => {
           <Route path="/verify-email" element={<VerifyEmail />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password/:token" element={<ResetPassword />} />
+          <Route path="/profile" element={<Profile />} />
           <Route 
             path="/" 
             element={

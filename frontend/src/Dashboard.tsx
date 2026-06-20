@@ -160,40 +160,7 @@ const Dashboard: React.FC = () => {
                     {user?.name || user?.email}
                   </p>
                   <button
-                    onClick={async () => {
-                      const newName = prompt("Enter new name", user?.name);
-
-                      if (!newName) return;
-
-                      try {
-                        const token = localStorage.getItem("token");
-
-                        const res = await axios.put(
-                          "http://localhost:5000/auth/update-name",
-                          { name: newName },
-                          {
-                            headers: {
-                              Authorization: `Bearer ${token}`,
-                            },
-                          }
-                        );
-
-                       const updatedUser = {
-                       ...user,
-                       name: res.data.name,
-                      };
-
-                      setUser(updatedUser);
-
-                      // localStorage bhi update karo
-                     localStorage.setItem("user", JSON.stringify(updatedUser));
-
-alert("Name updated successfully!");
-                      } catch (error) {
-                        console.error(error);
-                        alert("Failed to update name");
-                      }
-                    }}
+                    onClick={() => navigate("/profile")}
                     style={{
                       width: "100%",
                       padding: "8px",
@@ -205,27 +172,10 @@ alert("Name updated successfully!");
                       textAlign: "center"
                     }}
                   >
-                    Change Name
+                    Edit Profile
                   </button>
                 </div>
 
-                <label
-                  style={{
-                    display: "block",
-                    padding: "8px",
-                    cursor: "pointer",
-                    borderBottom: "1px solid #ddd"
-                  }}
-                >
-                  {uploading ? "Uploading..." : "Change Photo"}
-
-                  <input
-                    type="file"
-                    hidden
-                    accept="image/*"
-                    onChange={handlePhotoChange}
-                  />
-                </label>
 
                 <button
                   onClick={handleLogout}
