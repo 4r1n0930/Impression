@@ -30,74 +30,74 @@ const generateToken = (user) => {
 
 // @desc    Register a new user
 // @route   POST /auth/register
-router.post("/register",upload.single("profilePhoto"),
+router.post("/register", upload.single("profilePhoto"),
   async (req, res) => {
-  try {
-    const { name, email, password } = req.body;
+    try {
+      const { name, email, password } = req.body;
 
-    if (!name || !email || !password) {
-      return res.status(400).json({ message: "Please provide all required fields" });
-    }
+      if (!name || !email || !password) {
+        return res.status(400).json({ message: "Please provide all required fields" });
+      }
 
-    const userExists = await User.findOne({ email });
+      const userExists = await User.findOne({ email });
 
-    if (userExists) {
-      return res.status(400).json({ message: "User already exists" });
-    }
+      if (userExists) {
+        return res.status(400).json({ message: "User already exists" });
+      }
 
-    let profilePhoto = "";
+      let profilePhoto = "";
 
-    if (req.file) {
-      const result = await cloudinary.uploader.upload(
-        req.file.path,
-        {
-          folder: "profile_photos",
-        }
-      );
-      profilePhoto = result.secure_url;
-      fs.unlinkSync(req.file.path);
-    }
+      if (req.file) {
+        const result = await cloudinary.uploader.upload(
+          req.file.path,
+          {
+            folder: "profile_photos",
+          }
+        );
+        profilePhoto = result.secure_url;
+        fs.unlinkSync(req.file.path);
+      }
 
-    // Generate 6-digit verification code
-    const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
-    const verificationCodeExpires = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
+      // Generate 6-digit verification code
+      const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+      const verificationCodeExpires = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
 
-    const user = await User.create({
-      name,
-      email,
-      password,
-      profilePhoto,
-      verificationCode,
-      verificationCodeExpires,
-    });
-
-    // Send verification email
-    console.log(`Verification code for ${email}: ${verificationCode}`);
-
-    if (process.env.SMTP_HOST) {
-      const transporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST,
-        port: process.env.SMTP_PORT,
-        auth: {
-          user: process.env.SMTP_USER,
-          pass: process.env.SMTP_PASS,
-        },
+      const user = await User.create({
+        name,
+        email,
+        password,
+        profilePhoto,
+        verificationCode,
+        verificationCodeExpires,
       });
 
-      await transporter.sendMail({
-        to: user.email,
-        subject: "Email Verification Code",
-        text: `Your verification code is: ${verificationCode}. It will expire in 24 hours.`,
+      // Send verification email
+      console.log(`Verification code for ${email}: ${verificationCode}`);
+
+      if (process.env.SMTP_HOST) {
+        const transporter = nodemailer.createTransport({
+          host: process.env.SMTP_HOST,
+          port: process.env.SMTP_PORT,
+          auth: {
+            user: process.env.SMTP_USER,
+            pass: process.env.SMTP_PASS,
+          },
+        });
+
+        await transporter.sendMail({
+          to: user.email,
+          subject: "Email Verification Code",
+          text: `Your verification code is: ${verificationCode}. It will expire in 24 hours.`,
+        });
+      }
+      res.status(201).json({
+        message: "User registered. Please verify your email.",
+        email: user.email,
       });
+    } catch (error) {
+      res.status(500).json({ message: error.message });
     }
-    res.status(201).json({
-      message: "User registered. Please verify your email.",
-      email: user.email,
-    });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-});
+  });
 
 // @desc    Verify email
 // @route   POST /auth/verify-email
@@ -157,9 +157,9 @@ router.post("/login", async (req, res) => {
 
     if (user && user.password && (await user.comparePassword(password))) {
       if (!user.isVerified) {
-        return res.status(401).json({ 
+        return res.status(401).json({
           message: "Please verify your email before logging in",
-          notVerified: true 
+          notVerified: true
         });
       }
 
@@ -173,7 +173,7 @@ router.post("/login", async (req, res) => {
           name: user.name,
           email: user.email,
           profilePhoto: user.profilePhoto,
-          
+
         },
       });
     } else {
@@ -271,7 +271,7 @@ router.post("/forgot-password", async (req, res) => {
     const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
 
     // Log the link (for development/hackathon without SMTP)
-    console.log(`Password reset link: ${resetUrl}`);
+    //console.log(`Password reset link: ${resetUrl}`);
 
     // Optional: Send real email if SMTP configured
     if (process.env.SMTP_HOST) {
@@ -291,9 +291,61 @@ router.post("/forgot-password", async (req, res) => {
       });
     }
 
-    res.json({ message: "Reset link sent to email (check console if local)" });
+    res.json({ message: "Reset link sent to email " });
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+});
+router.post("/send-reset-link", protect, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId);
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    const resetToken = crypto.randomBytes(20).toString("hex");
+
+    user.resetPasswordToken = crypto
+      .createHash("sha256")
+      .update(resetToken)
+      .digest("hex");
+
+    user.resetPasswordExpires = Date.now() + 3600000;
+
+    await user.save();
+
+    const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
+
+    // console.log(`Password reset link: ${resetUrl}`);
+
+    if (process.env.SMTP_HOST) {
+      const transporter = nodemailer.createTransport({
+        host: process.env.SMTP_HOST,
+        port: process.env.SMTP_PORT,
+        auth: {
+          user: process.env.SMTP_USER,
+          pass: process.env.SMTP_PASS,
+        },
+      });
+
+      await transporter.sendMail({
+        to: user.email,
+        subject: "Password Reset Request",
+        text: `You requested a password reset.\n\nClick the link below:\n\n${resetUrl}`,
+      });
+    }
+
+    res.json({
+      message: "Password reset link sent to your email",
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      message: error.message,
+    });
   }
 });
 
