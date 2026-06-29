@@ -271,7 +271,7 @@ router.post("/forgot-password", async (req, res) => {
     const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
 
     // Log the link (for development/hackathon without SMTP)
-    //console.log(`Password reset link: ${resetUrl}`);
+    console.log(`Password reset link: ${resetUrl}`);
 
     // Optional: Send real email if SMTP configured
     if (process.env.SMTP_HOST) {
@@ -283,12 +283,16 @@ router.post("/forgot-password", async (req, res) => {
           pass: process.env.SMTP_PASS,
         },
       });
-
-      await transporter.sendMail({
+      try{
+        await transporter.sendMail({
         to: user.email,
         subject: "Password Reset Request",
         text: `You are receiving this because you (or someone else) have requested the reset of the password for your account.\n\n Please click on the following link, or paste this into your browser to complete the process:\n\n ${resetUrl} \n\n If you did not request this, please ignore this email and your password will remain unchanged.\n`,
       });
+      }catch(error){
+        console.error("Error sending email:", error);
+      }
+      
     }
 
     res.json({ message: "Reset link sent to email " });
@@ -319,7 +323,7 @@ router.post("/send-reset-link", protect, async (req, res) => {
 
     const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
 
-    // console.log(`Password reset link: ${resetUrl}`);
+    console.log(`Password reset link: ${resetUrl}`);
 
     if (process.env.SMTP_HOST) {
       const transporter = nodemailer.createTransport({
@@ -330,12 +334,16 @@ router.post("/send-reset-link", protect, async (req, res) => {
           pass: process.env.SMTP_PASS,
         },
       });
-
-      await transporter.sendMail({
+      try{
+        await transporter.sendMail({
         to: user.email,
         subject: "Password Reset Request",
         text: `You requested a password reset.\n\nClick the link below:\n\n${resetUrl}`,
       });
+      console.log("Email sent successfully");
+      }catch(error){
+        console.error("Error sending email:", error);
+      }
     }
 
     res.json({

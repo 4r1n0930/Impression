@@ -10,6 +10,7 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
+    "@google/genai": "^2.10.0",
     "bcryptjs": "^3.0.3",
     "cloudinary": "^2.10.0",
     "cors": "^2.8.6",
@@ -21,7 +22,9 @@
     "mongodb": "^7.3.0",
     "mongoose": "^9.7.0",
     "multer": "^2.2.0",
-    "nodemailer": "^8.0.11"
+    "nodemailer": "^9.0.1",
+    "react-speech-recognition": "^4.0.1",
+    "socket.io": "^4.8.3"
   },
   "devDependencies": {
     "@types/node": "^25.9.3",
