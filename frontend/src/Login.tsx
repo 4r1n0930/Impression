@@ -78,7 +78,6 @@ const Login: React.FC = () => {
 
         <form onSubmit={handleLogin} className="login-form">
           {error && <div className="error-message">{error}</div>}
-          ana
           <div className="form-group">
             <label htmlFor="email">Email Address</label>
             <input
