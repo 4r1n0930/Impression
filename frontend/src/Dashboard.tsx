@@ -207,7 +207,7 @@ const Dashboard: React.FC = () => {
             </h1>
 
             <p className="welcome-subtitle">
-              Create and manage AI mock interviews with ease.
+              Create and manage AI mock impressions with ease.
             </p>
           </div>
 
@@ -223,13 +223,13 @@ const Dashboard: React.FC = () => {
               }}
             >
               <span className="plus-icon">+</span>
-              Create Interview
+              Create Impression
             </Link>
           </div>
 
           <div className="recent-card">
             <h3>Recent Activity</h3>
-            <p>No interviews yet. Create your first interview.</p>
+            <p>No impressions yet. Create your first impression.</p>
           </div>
 
         </div>

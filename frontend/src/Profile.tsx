@@ -5,28 +5,7 @@ import "./Profile.css";
 const Profile = () => {
     const [name, setName] = useState("");
     const [photo, setPhoto] = useState<File | null>(null);
-    // useEffect(() => {
-    //     const fetchUser = async () => {
-    //         try {
-    //             const token = localStorage.getItem("token");
-
-    //             const res = await axios.get(
-    //                 "http://localhost:5000/dashboard/data",
-    //                 {
-    //                     headers: {
-    //                         Authorization: `Bearer ${token}`,
-    //                     },
-    //                 }
-    //             );
-
-    //             setName(res.data.user.name || "");
-    //         } catch (err) {
-    //             console.error(err);
-    //         }
-    //     };
-
-    //     fetchUser();
-    // }, []);
+    
     const handleSave = async () => {
         try {
             const token = localStorage.getItem("token");

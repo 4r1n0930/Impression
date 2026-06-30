@@ -2,6 +2,7 @@ import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import ProtectedRoute from './ProtectedRoute';
 import Profile from './Profile';
+// import InterviewRoom from "./InterviewRoom";
 
 
 // Lazy load components
@@ -19,6 +20,13 @@ const LoadingFallback: React.FC = () => (
     <div className="loading-spinner">Loading...</div>
   </div>
 );
+// function App() {
+//   return (
+//     <div>
+//       <InterviewRoom />
+//     </div>
+//   );
+// }
 
 const App: React.FC = () => {
   return (
