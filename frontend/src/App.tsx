@@ -14,6 +14,7 @@ const ResetPassword = lazy(() => import('./ResetPassword'));
 const Dashboard = lazy(() => import('./Dashboard'));
 const RoomConfig = lazy(() => import('./RoomConfig'));
 const InterviewRoom = lazy(() => import('./InterviewRoom'));
+const Interviewee = lazy(() => import('./Interviewee'));
 
 const LoadingFallback: React.FC = () => (
   <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
@@ -62,6 +63,10 @@ const App: React.FC = () => {
           <Route 
             path="/room/:roomName" 
             element={<InterviewRoom />} 
+          />
+          <Route 
+            path="/interviewee" 
+            element={<Interviewee />} 
           />
           
           {/* Catch-all route redirects to landing page (Dashboard/Login) */}

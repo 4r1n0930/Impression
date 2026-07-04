@@ -11,8 +11,10 @@ import { socket } from "./socket";
 import SpeechRecognition, {
   useSpeechRecognition,
 } from "react-speech-recognition";
+import Interviewee from "./Interviewee";
 
 const InterviewRoom = () => {
+  console.log("InterviewRoom Rendered");
   const { roomName } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
@@ -28,6 +30,7 @@ const InterviewRoom = () => {
   const [currentQuestion, setCurrentQuestion] = useState("");
   const [question, setQuestion] = useState("");
   const [currentQuestionId, setCurrentQuestionId] = useState("");
+  const [role, setRole] = useState("");
 
   const {
     transcript,
@@ -76,34 +79,52 @@ const InterviewRoom = () => {
     }
   };
   const saveQuestion = async (spokenQuestion: string) => {
-  try {
-    const res = await axios.post(
-      "http://localhost:5000/interview/save-question",
-      {
-        roomName,
-        question: spokenQuestion,
-      }
-    );
+    try {
+      const res = await axios.post(
+        "http://localhost:5000/interview/save-question",
+        {
+          roomName,
+          question: spokenQuestion,
+        }
+      );
 
-    setCurrentQuestionId(res.data.questionId);
+      setCurrentQuestionId(res.data.questionId);
 
-    console.log("Question ID:", res.data.questionId);
+      console.log("Question ID:", res.data.questionId);
 
-  } catch (err) {
-    console.error(err);
-  }
-};
-    useEffect(() => {
-      if (token) {
-        SpeechRecognition.startListening({
-          continuous: true,
-          language: "en-IN",
-        });
-      }
-    }, [token]);
-    useEffect(() => {
-      console.log("Transcript:", transcript);
-    }, [transcript]);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+  useEffect(() => {
+    const handleAnswerSaved = (data: any) => {
+      console.log("✅ Answer Saved", data);
+    };
+
+    const handleAnswerError = (data: any) => {
+      console.error("❌ Answer Error", data);
+    };
+
+    socket.on("answer:saved", handleAnswerSaved);
+    socket.on("answer:error", handleAnswerError);
+
+    return () => {
+      socket.off("answer:saved", handleAnswerSaved);
+      socket.off("answer:error", handleAnswerError);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (token) {
+      SpeechRecognition.startListening({
+        continuous: true,
+        language: "en-IN",
+      });
+    }
+  }, [token]);
+  useEffect(() => {
+    console.log("Transcript:", transcript);
+  }, [transcript]);
 
   useEffect(() => {
     // If we already have a token or we don't have a userName yet, wait.
@@ -175,12 +196,13 @@ const InterviewRoom = () => {
 
       setIsListening(false);
 
-      await axios.post("http://localhost:5000/interview/save-answer", {
+      socket.emit("answer:submit", {
         roomName,
+        candidate: userName,
+        questionId: currentQuestionId,     // current question ka id
         question,
         answer: transcript,
-        userName,
-  });
+      });
 
       resetTranscript();
 
@@ -192,21 +214,24 @@ const InterviewRoom = () => {
   const handleJoin = async (name: string) => {
     setIsJoining(true);
     setError(null);
+    console.log("handleJoin called");
     try {
       const res = await axios.post("http://localhost:5000/livekit/token", {
         roomName,
         userName: name,
         email: email || name,
       });
-
+      
+      console.log("Role:", res.data.role);
       // Emit join event to Socket.IO
       socket.emit("joinMeeting", {
         roomName,
         userName: name,
         email: email || name,
       });
-
+      console.log("LiveKit Response:", res.data);
       setToken(res.data.token);
+      setRole(res.data.role);
     } catch (err: any) {
       setError(err.response?.data?.message || "Failed to join room. You might not be authorized.");
     } finally {
@@ -294,6 +319,7 @@ const InterviewRoom = () => {
         style={{ height: "calc(100vh - 60px)" }}
       >
         <div className="main-layout">
+          
 
           {/* LEFT / TOP SIDE - AI SECTION */}
           <div className="ai-panel">

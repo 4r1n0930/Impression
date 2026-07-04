@@ -11,8 +11,9 @@ import dashboardRoutes from "./src/routes/dashboardRoutes.js";
 import livekitRoutes from "./src/routes/livekitRoutes.js";
 import cloudinary from "./src/config/cloudinary.js";
 import { GoogleGenAI } from "@google/genai";
+import interviewController from "./src/controller/InterviewController.js";
 
-const interviewSessions = {};
+const interviewSessions = new Map();
 
 dotenv.config();
 const ai = new GoogleGenAI({
@@ -51,6 +52,12 @@ io.on("connection", (socket) => {
     socket.join(roomName);
 
     // Track user
+    if (!interviewSessions.has(roomName)) {
+        interviewSessions.set(roomName, {
+            currentQuestion: null,
+            evaluations: []
+        });
+    }
     if (!activeUsers.has(roomName)) {
       activeUsers.set(roomName, []);
     }
@@ -69,6 +76,37 @@ io.on("connection", (socket) => {
     });
 
   });
+  socket.on("interviewer:transcript", async ({ roomName, transcript }) => {
+    const result =
+        await interviewController.processInterviewerSpeech(transcript);
+
+    if (result.type === "QUESTION") {
+
+        interviewSessions.get(roomName).currentQuestion = result.question;
+
+        io.to(roomName).emit("question:detected", result);
+    }
+});
+  socket.on("answer:submit", async (data) => {
+  try {
+    // TODO: Integrate with EvaluationAgent once it's converted to ES modules
+    // const result = await EvaluationAgent.process(data.question, data.answer);
+    
+    const result = {
+      success: true,
+      message: "Answer submitted successfully"
+    };
+
+    socket.emit("answer:saved", result);
+  } catch (error) {
+    console.error(error);
+
+    socket.emit("answer:error", {
+      success: false,
+      message: "Unable to save answer",
+    });
+  }
+});
 
   // When user leaves meeting
   socket.on("leaveMeeting", (data) => {
@@ -133,7 +171,7 @@ app.post("/interview/question", async (req, res) => {
   try {
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
-      contents: `Generate exactly 3 interview questions for a Neet Aspirant.
+      contents: `Generate exactly 3 interview questions for a java developer.
       Rules:
         - Return only questions
         - One question per line 
