@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import "./Profile.css";
+import { BACKEND_URL } from "../config";
+import "../style/Profile.css";
 
 const Profile = () => {
     const [name, setName] = useState("");
@@ -12,7 +13,7 @@ const Profile = () => {
 
             if (name.trim()) {
                 await axios.put(
-                    "http://localhost:5000/auth/update-name",
+                `${BACKEND_URL}/auth/update-name`,
                     { name },
                     {
                         headers: {
@@ -27,7 +28,7 @@ const Profile = () => {
                 formData.append("profilePhoto", photo);
 
                 await axios.put(
-                    "http://localhost:5000/auth/update-profile-photo",
+                `${BACKEND_URL}/auth/update-profile-photo`,
                     formData,
                     {
                         headers: {
@@ -48,7 +49,7 @@ const Profile = () => {
             const token = localStorage.getItem("token");
 
             const res = await axios.post(
-                "http://localhost:5000/auth/send-reset-link",
+            `${BACKEND_URL}/auth/send-reset-link`,
                 {},
                 {
                     headers: {

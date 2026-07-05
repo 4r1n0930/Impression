@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from "react-router-dom";
 import axios from 'axios';
-import './Dashboard.css';
+import { BACKEND_URL } from "../config";
+import '../style/Dashboard.css';
 
 const Dashboard: React.FC = () => {
   const [user, setUser] = useState<any>(null);
@@ -17,7 +18,7 @@ const Dashboard: React.FC = () => {
     const fetchDashboardData = async () => {
       try {
         const token = localStorage.getItem('token');
-        const res = await axios.get('http://localhost:5000/dashboard/data', {
+        const res = await axios.get(`${BACKEND_URL}/dashboard/data`, {
           headers: {
             Authorization: `Bearer ${token}`
           }
@@ -45,10 +46,10 @@ const Dashboard: React.FC = () => {
 
     // Check if path already starts with uploads/ or /uploads/
     if (normalizedPath.startsWith('uploads/') || normalizedPath.startsWith('/uploads/')) {
-      return `http://localhost:5000/${normalizedPath.startsWith('/') ? normalizedPath.slice(1) : normalizedPath}`;
+      return `${BACKEND_URL}/${normalizedPath.startsWith('/') ? normalizedPath.slice(1) : normalizedPath}`;
     }
 
-    return `http://localhost:5000/uploads/${normalizedPath}`;
+    return `${BACKEND_URL}/uploads/${normalizedPath}`;
   };
   const handlePhotoChange = async (
     e: React.ChangeEvent<HTMLInputElement>
@@ -66,7 +67,7 @@ const Dashboard: React.FC = () => {
       const token = localStorage.getItem("token");
 
       const res = await axios.put(
-        "http://localhost:5000/auth/update-profile-photo",
+        `${BACKEND_URL}/auth/update-profile-photo`,
         formData,
         {
           headers: {

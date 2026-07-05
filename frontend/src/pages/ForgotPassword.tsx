@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import axios from "axios";
 import { Link } from "react-router-dom";
-import "./Login.css";
+import { BACKEND_URL } from "../config";
+import "../style/Login.css";
 
 const ForgotPassword: React.FC = () => {
   const [email, setEmail] = useState("");
@@ -17,7 +18,7 @@ const ForgotPassword: React.FC = () => {
 
     try {
       const res = await axios.post(
-        "http://localhost:5000/auth/forgot-password",
+        `${BACKEND_URL}/auth/forgot-password`,
         { email }
       );
       setMessage(res.data.message);
@@ -63,7 +64,7 @@ const ForgotPassword: React.FC = () => {
 
         <div className="login-footer">
           <p>
-            Remembered your password? <Link to="/login">Sign in</Link>
+            Remembered your password? <Link to="/login">Log in</Link>
           </p>
         </div>
       </div>

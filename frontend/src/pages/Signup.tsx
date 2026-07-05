@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import axios from "axios";
 import { Link, useNavigate } from "react-router-dom";
-import "./Login.css"; // Reusing Login styles for consistency
+import { BACKEND_URL } from "../config";
+import "../style/Login.css"; // Reusing Login styles for consistency
 
 const Signup: React.FC = () => {
   const navigate = useNavigate();
@@ -36,7 +37,7 @@ const Signup: React.FC = () => {
         formData.append("profilePhoto", profilePhoto);
       }
       await axios.post(
-        "http://localhost:5000/auth/register",
+        `${BACKEND_URL}/auth/register`,
         formData,
         {
           headers: {
@@ -64,7 +65,7 @@ const Signup: React.FC = () => {
 
     try {
       const res = await axios.post(
-        "http://localhost:5000/auth/verify-email",
+        `${BACKEND_URL}/auth/verify-email`,
         { email, code: verificationCode }
       );
 

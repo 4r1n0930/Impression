@@ -1,20 +1,17 @@
 import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import ProtectedRoute from './ProtectedRoute';
-import Profile from './Profile';
-// import InterviewRoom from "./InterviewRoom";
+import Profile from './pages/Profile';
 
-
-// Lazy load components
-const Login = lazy(() => import('./Login'));
-const Signup = lazy(() => import('./Signup'));
-const VerifyEmail = lazy(() => import('./VerifyEmail'));
-const ForgotPassword = lazy(() => import('./ForgotPassword'));
-const ResetPassword = lazy(() => import('./ResetPassword'));
-const Dashboard = lazy(() => import('./Dashboard'));
-const RoomConfig = lazy(() => import('./RoomConfig'));
-const InterviewRoom = lazy(() => import('./InterviewRoom'));
-const Interviewee = lazy(() => import('./Interviewee'));
+const Login = lazy(() => import('./pages/Login'));
+const Signup = lazy(() => import('./pages/Signup'));
+const VerifyEmail = lazy(() => import('./pages/VerifyEmail'));
+const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
+const ResetPassword = lazy(() => import('./pages/ResetPassword'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const RoomConfig = lazy(() => import('./pages/RoomConfig'));
+const InterviewRoom = lazy(() => import('./pages/InterviewRoom'));
+const Interviewee = lazy(() => import('./pages/Interviewee'));
 
 const LoadingFallback: React.FC = () => (
   <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
@@ -65,8 +62,12 @@ const App: React.FC = () => {
             element={<InterviewRoom />} 
           />
           <Route 
-            path="/interviewee" 
-            element={<Interviewee />} 
+            path="/interviewee/:roomName" 
+            element={
+              <ProtectedRoute>
+                <Interviewee />
+              </ProtectedRoute>
+            } 
           />
           
           {/* Catch-all route redirects to landing page (Dashboard/Login) */}
