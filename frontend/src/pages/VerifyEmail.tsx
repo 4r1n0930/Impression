@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { useNavigate, useLocation } from "react-router-dom";
-import "./Login.css";
+import { BACKEND_URL } from "../config";
+import "../style/Login.css";
 
 const VerifyEmail: React.FC = () => {
   const navigate = useNavigate();
@@ -27,7 +28,7 @@ const VerifyEmail: React.FC = () => {
 
     try {
       const res = await axios.post(
-        "http://localhost:5000/auth/verify-email",
+        `${BACKEND_URL}/auth/verify-email`,
         { email, code: verificationCode }
       );
 
@@ -61,7 +62,7 @@ const VerifyEmail: React.FC = () => {
       // We don't have a dedicated resend endpoint yet, but register can act as one or we can add one.
       // For now, let's assume register doesn't work for existing users.
       // I'll add a resend-code endpoint in the backend.
-      await axios.post("http://localhost:5000/auth/resend-code", { email });
+      await axios.post(`${BACKEND_URL}/auth/resend-code`, { email });
       setSuccess("New verification code sent!");
     } catch (err: any) {
       setError(err.response?.data?.message || "Failed to resend code");

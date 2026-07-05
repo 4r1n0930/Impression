@@ -1,0 +1,56 @@
+.interviewee-main {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  overflow: hidden;
+}
+
+.waiting-text {
+  color: #64748b;
+  font-size: 18px;
+}
+
+.interviewer-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  max-width: 1200px;
+}
+
+.interviewee-tile {
+  width: 300px;
+  height: 220px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--card-bg, #1e293b);
+  position: relative;
+}
+
+.participant-label {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  background: rgba(0, 0, 0, 0.6);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.pip-tile {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  width: 180px;
+  height: 140px;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 2px solid var(--accent-color, #3b82f6);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  background: var(--card-bg, #1e293b);
+}

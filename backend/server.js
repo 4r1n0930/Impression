@@ -8,7 +8,8 @@ import interviewRoutes from "./src/routes/interviewRoutes.js";
 import connectDB from "./src/config/db.js";
 import authRoutes from "./src/routes/authRoutes.js";
 import dashboardRoutes from "./src/routes/dashboardRoutes.js";
-import livekitRoutes from "./src/routes/livekitRoutes.js";
+import apiRoutes from "./src/routes/apiRoutes.js";
+import roomRoutes from "./src/routes/roomRoutes.js";
 import cloudinary from "./src/config/cloudinary.js";
 import { GoogleGenAI } from "@google/genai";
 import interviewController from "./src/controller/InterviewController.js";
@@ -248,7 +249,8 @@ app.use("/uploads", express.static("src/uploads"));
 // Routes
 app.use("/auth", authRoutes);
 app.use("/dashboard", dashboardRoutes);
-app.use("/livekit", livekitRoutes);
+app.use("/api", apiRoutes);
+app.use("/rooms", roomRoutes);
 app.use("/interview", interviewRoutes);
 
 const PORT = process.env.PORT || 5000;

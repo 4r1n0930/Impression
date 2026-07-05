@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import axios from "axios";
 import { useParams, Link } from "react-router-dom";
-import "./Login.css";
+import { BACKEND_URL } from "../config";
+import "../style/Login.css";
 
 const ResetPassword: React.FC = () => {
   const { token } = useParams<{ token: string }>();
@@ -24,7 +25,7 @@ const ResetPassword: React.FC = () => {
 
     try {
       const res = await axios.post(
-        `http://localhost:5000/auth/reset-password/${token}`,
+        `${BACKEND_URL}/auth/reset-password/${token}`,
         { password }
       );
       setMessage(res.data.message);
