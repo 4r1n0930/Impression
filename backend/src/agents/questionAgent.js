@@ -1,23 +1,32 @@
-const { callGemini } = require("../services/geminiService");
-const { getQuestionPrompt } = require("../prompts/questionPrompt");
+import { callGemini } from "../services/geminiService.js";
+import { getQuestionPrompt } from "../prompts/questionPrompt.js";
 
-const generateQuestion = async ({ role, difficulty, topic }) => {
+const generateQuestions = async ({
+  role,
+  difficulty,
+  topic,
+  count = 3,
+}) => {
   try {
     const prompt = getQuestionPrompt({
       role,
       difficulty,
       topic,
+      count,
     });
 
-    const question = await callGemini(prompt);
+    const response = await callGemini(prompt);
 
-    return question.trim();
+    return response
+      .split("\n")
+      .map((q) => q.trim())
+      .filter((q) => q.length > 0)
+      .slice(0, count);
+
   } catch (error) {
     console.error("Question Agent Error:", error.message);
     throw error;
   }
 };
 
-module.exports = {
-  generateQuestion,
-};
+export { generateQuestions };

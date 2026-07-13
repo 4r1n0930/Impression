@@ -11,6 +11,7 @@ import dashboardRoutes from "./src/routes/dashboardRoutes.js";
 import livekitRoutes from "./src/routes/livekitRoutes.js";
 import cloudinary from "./src/config/cloudinary.js";
 import { GoogleGenAI } from "@google/genai";
+import { generateQuestions } from "./src/agents/questionAgent.js";
 
 const interviewSessions = {};
 
@@ -128,34 +129,27 @@ io.on("connection", (socket) => {
 
 // Middleware
 app.use(cors());
-app.use(express.json());
+app.use(express.json());//bhupi
+
 app.post("/interview/question", async (req, res) => {
   try {
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: `Generate exactly 3 interview questions for a Neet Aspirant.
-      Rules:
-        - Return only questions
-        - One question per line 
-        - No numbering
-        - No extra text
-        `,
+    const { role, difficulty, topic, count } = req.body;
+
+    const questions = await generateQuestions({
+      role,
+      difficulty,
+      topic,
+      count,
     });
 
-    const text = response.text;
+    io.emit("newQuestions", questions);
 
-    const selectedQuestions = text
-      .split("\n")
-      .map(q => q.trim())
-      .filter(q => q.length > 0)
-      .slice(0, 3);
-
-    io.emit("newQuestions", selectedQuestions);
-
-    res.json({ questions: selectedQuestions });
+    res.json({
+      questions,
+    });
 
   } catch (error) {
-    console.error("Gemini Error:", error);
+    console.error("Question Agent Error:", error);
 
     res.status(500).json({
       message: "Failed to generate questions",

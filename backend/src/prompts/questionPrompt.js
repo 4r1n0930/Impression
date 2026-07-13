@@ -1,20 +1,26 @@
-const getQuestionPrompt = ({ role, difficulty, topic }) => {
+
+const getQuestionPrompt = ({
+  role,
+  difficulty,
+  topic,
+  count = 3,
+}) => {
   return `
 You are an experienced technical interviewer.
 
-Generate exactly ONE interview question.
+Generate exactly ${count} interview questions.
+
+Role: ${role}
+Difficulty: ${difficulty}
+Topic: ${topic}
 
 Rules:
-- Role: ${role}
-- Difficulty: ${difficulty}
-- Topic: ${topic}
-- Return only the interview question.
-- Do not include numbering.
-- Do not include explanation.
-- Do not include markdown.
+- Return only interview questions.
+- One question per line.
+- No numbering.
+- No explanation.
+- No markdown.
 `;
 };
 
-module.exports = {
-  getQuestionPrompt,
-};
+export { getQuestionPrompt };
