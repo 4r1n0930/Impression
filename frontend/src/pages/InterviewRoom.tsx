@@ -14,6 +14,8 @@ import axios from "axios";
 import { BACKEND_URL } from "../config";
 import "../style/InterviewRoom.css";
 import { io, Socket } from "socket.io-client";
+import AudioCapture from "../../public/audio/AudioCapture";
+import { useRef } from "react";
 
 const socket: Socket = io(BACKEND_URL);
 
@@ -21,8 +23,82 @@ const InterviewerLayout = ({ roomName, name }: { roomName: string; name: string 
   const navigate = useNavigate();
   const participants = useParticipants();
   const { localParticipant, isMicrophoneEnabled, isCameraEnabled, isScreenShareEnabled } = useLocalParticipant();
+  const captureRef = useRef<AudioCapture | null>(null);
   const room = useRoomContext();
   const tracks = useTracks([Track.Source.Camera]);
+  const [suggestedQuestions, setSuggestedQuestions] = useState([
+    "What is HashMap?",
+    "Explain ConcurrentHashMap.",
+    "Difference between HashMap and Hashtable."
+  ]);
+
+  useEffect(() => {
+    const startPCM = async () => {
+      try {
+        const publication = localParticipant.getTrackPublication(
+          Track.Source.Microphone
+        );
+
+        if (!publication) {
+          console.log("Microphone publication not found");
+          return;
+        }
+
+        const localAudioTrack = publication.track;
+
+        if (!localAudioTrack) {
+          console.log("Local audio track not found");
+          return;
+        }
+
+        const mediaTrack = localAudioTrack.mediaStreamTrack;
+
+        if (!mediaTrack) {
+          console.log("MediaStreamTrack not found");
+          return;
+        }
+
+        const stream = new MediaStream([mediaTrack]);
+
+        const capture = new AudioCapture();
+        captureRef.current = capture;
+
+        await capture.start(stream, (pcm) => {
+          if (!isMicrophoneEnabled) return;
+
+          socket.emit("pcm-data", {
+            roomName,
+            role: "interviewer",
+            participantId: localParticipant.identity,
+            speakerName: name,
+            pcm: Array.from(pcm),
+          });
+
+          // next step
+          // socket.emit(...)
+        });
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
+    startPCM();
+
+    return () => {
+      captureRef.current?.stop();
+    };
+  }, [localParticipant, isMicrophoneEnabled]);
+
+  useEffect(() => {
+    socket.on("ai-suggested-questions", (questions) => {
+      setSuggestedQuestions(questions);
+    });
+
+    return () => {
+      socket.off("ai-suggested-questions");
+    };
+  }, []);
+
 
   const intervieweeTrack = tracks.find((t) => !t.participant.identity.startsWith("interviewer-"));
   const interviewerTracks = tracks.filter((t) => t.participant.identity.startsWith("interviewer-"));
@@ -52,28 +128,55 @@ const InterviewerLayout = ({ roomName, name }: { roomName: string; name: string 
       </header>
 
       <main className="interview-room-main">
-        <div className="interviewer-row">
-          {interviewerTracks.length === 0 ? (
-            <p className="waiting-text">No other interviewers</p>
-          ) : (
-            interviewerTracks.map((t) => (
-              <div key={t.participant.identity} className="interviewer-tile">
-                <ParticipantTile trackRef={t} />
-                <span className="participant-label">{t.participant.name || t.participant.identity}</span>
-              </div>
-            ))
-          )}
-        </div>
-
-        <div className="interviewee-section">
-          {intervieweeTrack ? (
-            <div className="interviewee-tile-large">
-              <ParticipantTile trackRef={intervieweeTrack} />
-              <span className="participant-label">{intervieweeTrack.participant.name || "Interviewee"}</span>
+        <div className="interview-content">
+          <div className="video-section">
+            <div className="interviewer-row">
+              {interviewerTracks.length === 0 ? (
+                <p className="waiting-text">No other interviewers</p>
+              ) : (
+                interviewerTracks.map((t) => (
+                  <div key={t.participant.identity} className="interviewer-tile">
+                    <ParticipantTile trackRef={t} />
+                    <span className="participant-label">
+                      {t.participant.name || t.participant.identity}
+                    </span>
+                  </div>
+                ))
+              )}
             </div>
-          ) : (
-            <p className="waiting-text">Waiting for interviewee to join...</p>
-          )}
+
+            <div className="interviewee-section">
+              {intervieweeTrack ? (
+                <div className="interviewee-tile-large">
+                  <ParticipantTile trackRef={intervieweeTrack} />
+                  <span className="participant-label">
+                    {intervieweeTrack.participant.name || "Interviewee"}
+                  </span>
+                </div>
+              ) : (
+                <p className="waiting-text">Waiting for interviewee to join...</p>
+              )}
+            </div>
+          </div>
+
+          <div className="ai-panel">
+            <h3>🤖 AI Suggested Questions</h3>
+
+            {suggestedQuestions.map((question, index) => (
+              <div key={index} className="question-card">
+                {index + 1}. {question}
+              </div>
+            ))}
+
+            <button
+              className="refresh-btn"
+              onClick={() => {
+                socket.emit("refresh-suggestions", { roomName });
+              }}
+            >
+              🔄 Refresh Suggestions
+            </button>
+          </div>
         </div>
       </main>
 
@@ -132,6 +235,8 @@ const InterviewRoom = () => {
       .catch(() => setRoomStatus("invalid"));
   }, [roomName]);
 
+
+
   useEffect(() => {
     return () => {
       if (roomName && userName) {
@@ -155,8 +260,9 @@ const InterviewRoom = () => {
 
       socket.emit("joinMeeting", {
         roomName,
-        userName,
-        email,
+        userName: userName,
+        email: email,
+        role: "interviewer"
       });
 
       setToken(res.data.token);
