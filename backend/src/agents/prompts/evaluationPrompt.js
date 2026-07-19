@@ -32,7 +32,7 @@ Example Output:
 {
   "score": 8,
   "technicalAccuracy": 9,
-  "completeness": 8,
+  "completeness": 8, 
   "communication": 8,
   "confidence": 7,
   "strengths": [

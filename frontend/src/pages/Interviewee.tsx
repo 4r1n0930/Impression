@@ -15,7 +15,8 @@ import { io, Socket } from "socket.io-client";
 import { BACKEND_URL } from "../config";
 import "../style/InterviewRoom.css";
 import "../style/Interviewee.css";
-
+import AudioCapture from "../../public/audio/AudioCapture";
+import { useRef } from "react";
 const socket: Socket = io(BACKEND_URL);
 
 const IntervieweeLayout = ({ roomName, name }: { roomName: string; name: string }) => {
@@ -24,6 +25,64 @@ const IntervieweeLayout = ({ roomName, name }: { roomName: string; name: string 
   const { localParticipant, isMicrophoneEnabled, isCameraEnabled, isScreenShareEnabled } = useLocalParticipant();
   const room = useRoomContext();
   const tracks = useTracks([Track.Source.Camera]);
+  const captureRef = useRef<AudioCapture | null>(null);
+
+  useEffect(() => {
+      const startPCM = async () => {
+        try {
+          const publication = localParticipant.getTrackPublication(
+            Track.Source.Microphone
+          );
+  
+          if (!publication) {
+            console.log("Microphone publication not found");
+            return;
+          }
+  
+          const localAudioTrack = publication.track;
+  
+          if (!localAudioTrack) {
+            console.log("Local audio track not found");
+            return;
+          }
+  
+          const mediaTrack = localAudioTrack.mediaStreamTrack;
+  
+          if (!mediaTrack) {
+            console.log("MediaStreamTrack not found");
+            return;
+          }
+  
+          const stream = new MediaStream([mediaTrack]);
+  
+          const capture = new AudioCapture();
+          captureRef.current = capture;
+  
+          await capture.start(stream, (pcm) => {
+            if (!isMicrophoneEnabled) return;
+            
+            socket.emit("pcm-data", {
+              roomName,
+              role: "interviewee",
+              participantId: localParticipant.identity,
+              speakerName: name,
+              pcm: Array.from(pcm),
+            });
+  
+            // next step
+            // socket.emit(...)
+          });
+        } catch (err) {
+          console.error(err);
+        }
+      };
+  
+      startPCM();
+  
+      return () => {
+        captureRef.current?.stop();
+      };
+    }, [localParticipant, isMicrophoneEnabled]);
 
   const interviewerTracks = tracks.filter((t) => !t.participant.isLocal);
   const localTrack = tracks.find((t) => t.participant.isLocal);
@@ -142,6 +201,7 @@ const Interviewee = () => {
         roomName,
         userName: name,
         email: name,
+        role: "interviewee"
       });
 
       setToken(res.data.token);

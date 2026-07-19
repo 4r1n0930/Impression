@@ -13,8 +13,15 @@ import roomRoutes from "./src/routes/roomRoutes.js";
 import cloudinary from "./src/config/cloudinary.js";
 import { GoogleGenAI } from "@google/genai";
 import interviewController from "./src/controller/InterviewController.js";
+import { createDeepgramConnection } from "./src/services/deepgramService.js";
+import transcriptService from "./src/services/transcriptService.js";
+import nextQuestionAgent from "./src/agents/NextQuestionAgent.js";
 
 const interviewSessions = new Map();
+const deepgramConnections = new Map();
+
+const answerBuffers = new Map();
+const answerTimers = new Map();
 
 dotenv.config();
 const ai = new GoogleGenAI({
@@ -44,20 +51,43 @@ const activeUsers = new Map(); // roomName -> [{ socketId, userName, email }]
 
 io.on("connection", (socket) => {
   console.log(" User Connected:", socket.id);
+  function connectDeepgram(roomName, role) {
+    const connection = createDeepgramConnection(
+      socket,
+      roomName,
+      role,
+      async ({ roomName, role, transcript }) => {
 
+        await transcriptService.handleTranscript({
+          io,
+          roomName,
+          role,
+          transcript,
+          interviewSessions,
+        });
+
+      }
+    );
+
+    deepgramConnections.set(socket.id, connection);
+
+    return connection;
+  }
   // When user joins a meeting room
   socket.on("joinMeeting", (data) => {
-    const { roomName, userName, email } = data;
+    const { roomName, userName, email, role } = data;
 
     // Add user to room
     socket.join(roomName);
 
+    connectDeepgram(roomName, role);
+
     // Track user
     if (!interviewSessions.has(roomName)) {
-        interviewSessions.set(roomName, {
-            currentQuestion: null,
-            evaluations: []
-        });
+      interviewSessions.set(roomName, {
+        currentQuestion: null,
+        evaluations: []
+      });
     }
     if (!activeUsers.has(roomName)) {
       activeUsers.set(roomName, []);
@@ -79,36 +109,53 @@ io.on("connection", (socket) => {
   });
   socket.on("interviewer:transcript", async ({ roomName, transcript }) => {
     const result =
-        await interviewController.processInterviewerSpeech(transcript);
+      await interviewController.processInterviewerSpeech(transcript);
 
     if (result.type === "QUESTION") {
 
-        interviewSessions.get(roomName).currentQuestion = result.question;
+      interviewSessions.get(roomName).currentQuestion = result.question;
 
-        io.to(roomName).emit("question:detected", result);
+      io.to(roomName).emit("question:detected", result);
     }
-});
-  socket.on("answer:submit", async (data) => {
-  try {
-    // TODO: Integrate with EvaluationAgent once it's converted to ES modules
-    // const result = await EvaluationAgent.process(data.question, data.answer);
-    
-    const result = {
-      success: true,
-      message: "Answer submitted successfully"
-    };
+  });
+  // socket.on("answer:submit", async (data) => {
+  //   try {
+  //     // TODO: Integrate with EvaluationAgent once it's converted to ES modules
+  //     // const result = await EvaluationAgent.process(data.question, data.answer);
 
-    socket.emit("answer:saved", result);
-  } catch (error) {
-    console.error(error);
+  //     const result = {
+  //       success: true,
+  //       message: "Answer submitted successfully"
+  //     };
 
-    socket.emit("answer:error", {
-      success: false,
-      message: "Unable to save answer",
-    });
-  }
-});
+  //     socket.emit("answer:saved", result);
+  //   } catch (error) {
+  //     console.error(error);
 
+  //     socket.emit("answer:error", {
+  //       success: false,
+  //       message: "Unable to save answer",
+  //     });
+  //   }
+  // });
+  socket.on("pcm-data", (data) => {
+    let connection = deepgramConnections.get(socket.id);
+
+    if (!connection) {
+      connection = connectDeepgram(data.roomName, data.role);
+    }
+
+    connection.send(
+      Buffer.from(new Int16Array(data.pcm).buffer)
+    );
+  });
+  socket.on("refresh-suggestions", ({ roomName }) => {
+    socket.emit("ai-suggested-questions", [
+      "Explain TreeMap.",
+      "What is LinkedHashMap?",
+      "How does HashMap handle collisions?"
+    ]);
+  });
   // When user leaves meeting
   socket.on("leaveMeeting", (data) => {
     const { roomName, userName } = data;
@@ -116,6 +163,7 @@ io.on("connection", (socket) => {
     if (activeUsers.has(roomName)) {
       const users = activeUsers.get(roomName);
       const index = users.findIndex(u => u.socketId === socket.id);
+      const connection = deepgramConnections.get(socket.id);
 
       if (index > -1) {
         users.splice(index, 1);
@@ -135,12 +183,24 @@ io.on("connection", (socket) => {
         } else {
           console.log(` Room ${roomName} now has ${users.length} users`);
         }
+
+        if (connection) {
+          connection.finish();
+          deepgramConnections.delete(socket.id);
+        }
       }
     }
   });
 
   socket.on("disconnect", () => {
     console.log("User Disconnected:", socket.id);
+
+    const connection = deepgramConnections.get(socket.id);
+
+    if (connection) {
+      connection.finish();
+      deepgramConnections.delete(socket.id);
+    }
 
     // Remove user from all rooms on disconnect
     for (const [roomName, users] of activeUsers.entries()) {
@@ -180,19 +240,6 @@ app.post("/interview/question", async (req, res) => {
         - No extra text
         `,
     });
-
-    const text = response.text;
-
-    const selectedQuestions = text
-      .split("\n")
-      .map(q => q.trim())
-      .filter(q => q.length > 0)
-      .slice(0, 3);
-
-    io.emit("newQuestions", selectedQuestions);
-
-    res.json({ questions: selectedQuestions });
-
   } catch (error) {
     console.error("Gemini Error:", error);
 
@@ -223,26 +270,6 @@ app.post("/interview/select-question", (req, res) => {
     success: true
   });
 });
-app.get("/test-gemini", async (req, res) => {
-  try {
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: "Reply with only: Gemini Connected Successfully",
-    });
-
-    res.json({
-      success: true,
-      message: response.text,
-    });
-  } catch (error) {
-
-    res.status(500).json({
-      error: error.message,
-      details: error,
-    });
-  }
-});
-
 // Static files for uploaded content
 app.use("/uploads", express.static("src/uploads"));
 
@@ -254,6 +281,7 @@ app.use("/rooms", roomRoutes);
 app.use("/interview", interviewRoutes);
 
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => {
+server.listen(PORT, async () => {
   console.log(`Server running on port ${PORT}`);
+
 });

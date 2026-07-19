@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+﻿import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from "react-router-dom";
 import axios from 'axios';
 import { BACKEND_URL } from "../config";
@@ -71,7 +71,7 @@ const Dashboard: React.FC = () => {
         formData,
         {
           headers: {
-            Authorization: `Bearer ${token}`,
+            Authorization: `Bearer ${token}`
           },
         }
       );
@@ -204,7 +204,7 @@ const Dashboard: React.FC = () => {
 
           <div className="welcome-card">
             <h1 className="welcome-title">
-              Welcome back, {user?.name || user?.email?.split("@")[0]} 👋
+              Welcome back, {user?.name || user?.email?.split("@")[0]} ??
             </h1>
 
             <p className="welcome-subtitle">
@@ -240,3 +240,5 @@ const Dashboard: React.FC = () => {
 };
 
 export default Dashboard;
+
+
