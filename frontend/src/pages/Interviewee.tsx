@@ -20,7 +20,6 @@ import { useRef } from "react";
 const socket: Socket = io(BACKEND_URL);
 
 const IntervieweeLayout = ({ roomName, name }: { roomName: string; name: string }) => {
-  const navigate = useNavigate();
   const participants = useParticipants();
   const { localParticipant, isMicrophoneEnabled, isCameraEnabled, isScreenShareEnabled } = useLocalParticipant();
   const room = useRoomContext();

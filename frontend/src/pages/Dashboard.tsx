@@ -1,16 +1,14 @@
-﻿import React, { useEffect, useState } from 'react';
+import  { useEffect, useState } from 'react';
 import { Link, useNavigate } from "react-router-dom";
 import axios from 'axios';
 import { BACKEND_URL } from "../config";
 import '../style/Dashboard.css';
 
-const Dashboard: React.FC = () => {
+const Dashboard = () => {
   const [user, setUser] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [showMenu, setShowMenu] = useState(false);
-  const [showNameModal, setShowNameModal] = useState(false);
-  const [newName, setNewName] = useState("");
 
   const navigate = useNavigate();
 
