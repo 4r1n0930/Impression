@@ -12,8 +12,8 @@ class EvaluationAgent {
         model: "gemini-2.5-flash",
         contents: prompt,
       });
-
-      let response = result.text().trim();
+      let response =
+        result.candidates[0].content.parts[0].text.trim();
 
       // Remove markdown if Gemini returns ```json ... ```
       if (response.startsWith("```json")) {

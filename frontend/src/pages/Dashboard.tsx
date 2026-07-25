@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import  { useEffect, useState } from 'react';
 import { Link, useNavigate } from "react-router-dom";
 import axios from 'axios';
 import { BACKEND_URL } from "../config";
@@ -6,6 +6,7 @@ import '../style/Dashboard.css';
 
 const Dashboard = () => {
   const [user, setUser] = useState<any>(null);
+  const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showMenu, setShowMenu] = useState(false);
 
@@ -48,6 +49,42 @@ const Dashboard = () => {
 
     return `${BACKEND_URL}/uploads/${normalizedPath}`;
   };
+  const handlePhotoChange = async (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    try {
+      const file = e.target.files?.[0];
+
+      if (!file) return;
+
+      setUploading(true);
+
+      const formData = new FormData();
+      formData.append("profilePhoto", file);
+
+      const token = localStorage.getItem("token");
+
+      const res = await axios.put(
+        `${BACKEND_URL}/auth/update-profile-photo`,
+        formData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          },
+        }
+      );
+
+      setUser({
+        ...user,
+        profilePhoto: res.data.profilePhoto,
+      });
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setUploading(false);
+    }
+
+  }
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user")
@@ -165,7 +202,7 @@ const Dashboard = () => {
 
           <div className="welcome-card">
             <h1 className="welcome-title">
-              Welcome back, {user?.name || user?.email?.split("@")[0]} 👋
+              Welcome back, {user?.name || user?.email?.split("@")[0]} ??
             </h1>
 
             <p className="welcome-subtitle">
@@ -201,3 +238,5 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
+
+
