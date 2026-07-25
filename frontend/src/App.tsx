@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import ProtectedRoute from './ProtectedRoute';
 import Profile from './pages/Profile';
 
+const Landing = lazy(() => import('./pages/Landing'));
 const Login = lazy(() => import('./pages/Login'));
 const Signup = lazy(() => import('./pages/Signup'));
 const VerifyEmail = lazy(() => import('./pages/VerifyEmail'));
@@ -31,6 +32,7 @@ const App: React.FC = () => {
     <Router>
       <Suspense fallback={<LoadingFallback />}>
         <Routes>
+          <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<Signup />} />
           <Route path="/verify-email" element={<VerifyEmail />} />
@@ -38,16 +40,12 @@ const App: React.FC = () => {
           <Route path="/reset-password/:token" element={<ResetPassword />} />
           <Route path="/profile" element={<Profile />} />
           <Route 
-            path="/" 
+            path="/dashboard" 
             element={
               <ProtectedRoute>
                 <Dashboard />
               </ProtectedRoute>
             } 
-          />
-          <Route 
-            path="/dashboard" 
-            element={<Navigate to="/" replace />} 
           />
           <Route 
             path="/roomConfig" 
@@ -70,7 +68,7 @@ const App: React.FC = () => {
             } 
           />
           
-          {/* Catch-all route redirects to landing page (Dashboard/Login) */}
+          {/* Catch-all route redirects to landing page */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>

@@ -1,0 +1,17 @@
+.landing-container {
+  position: relative;
+  width: 100%;
+  background: #ffffff;
+}
+
+.landing-canvas-wrapper {
+  position: sticky;
+  top: 0;
+  width: 100%;
+  height: 100vh;
+  z-index: 0;
+}
+
+.landing-scroll-spacer {
+  height: 500vh;
+}

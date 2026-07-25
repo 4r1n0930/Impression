@@ -1,16 +1,13 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from "react-router-dom";
 import axios from 'axios';
 import { BACKEND_URL } from "../config";
 import '../style/Dashboard.css';
 
-const Dashboard: React.FC = () => {
+const Dashboard = () => {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [uploading, setUploading] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
-  const [showNameModal, setShowNameModal] = useState(false);
-  const [newName, setNewName] = useState("");
 
   const navigate = useNavigate();
 
@@ -51,42 +48,6 @@ const Dashboard: React.FC = () => {
 
     return `${BACKEND_URL}/uploads/${normalizedPath}`;
   };
-  const handlePhotoChange = async (
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    try {
-      const file = e.target.files?.[0];
-
-      if (!file) return;
-
-      setUploading(true);
-
-      const formData = new FormData();
-      formData.append("profilePhoto", file);
-
-      const token = localStorage.getItem("token");
-
-      const res = await axios.put(
-        `${BACKEND_URL}/auth/update-profile-photo`,
-        formData,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      setUser({
-        ...user,
-        profilePhoto: res.data.profilePhoto,
-      });
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setUploading(false);
-    }
-
-  }
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user")

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState } from "react";
 import axios from "axios";
 import { BACKEND_URL } from "../config";
 import "../style/Profile.css";
