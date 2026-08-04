@@ -6,7 +6,7 @@ class RoomService {
   async createRoom({ name, maxInterviewers, password, creator }) {
     const roomName = name && name.trim()
       ? name.trim()
-      : `Interview Room #${new mongoose.Types.ObjectId()}`;
+      : `room-${Math.random().toString(36).substring(2, 8)}`;
 
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);

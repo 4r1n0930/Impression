@@ -16,6 +16,8 @@ import interviewController from "./src/controller/InterviewController.js";
 import { createDeepgramConnection } from "./src/services/deepgramService.js";
 import transcriptService from "./src/services/transcriptService.js";
 import nextQuestionAgent from "./src/agents/NextQuestionAgent.js";
+import User from "./src/models/User.js";
+import { decrypt } from "./src/utils/cryptoUtils.js";
 
 const interviewSessions = new Map();
 const deepgramConnections = new Map();
@@ -51,7 +53,10 @@ const activeUsers = new Map(); // roomName -> [{ socketId, userName, email }]
 
 io.on("connection", (socket) => {
   console.log(" User Connected:", socket.id);
-  function connectDeepgram(roomName, role) {
+  function connectDeepgram(roomName, role, userApiKey) {
+    if (deepgramConnections.has(socket.id)) {
+      return deepgramConnections.get(socket.id);
+    }
     const connection = createDeepgramConnection(
       socket,
       roomName,
@@ -63,7 +68,7 @@ io.on("connection", (socket) => {
           roomName,
           role,
           transcript,
-          interviewSessions,
+          userApiKey: socket.userApiKey || userApiKey,
         });
 
       }
@@ -75,22 +80,25 @@ io.on("connection", (socket) => {
   }
   // When user joins a meeting room
   socket.on("joinMeeting", async (data) => {
-    const { roomName, userName, email, role } = data;
+    const { roomName, userName, email, role, geminiApiKey } = data;
+
+    let userApiKey = geminiApiKey ? decrypt(geminiApiKey) : "";
+    if (!userApiKey && email) {
+      try {
+        const u = await User.findOne({ email });
+        if (u && u.geminiApiKey) {
+          userApiKey = decrypt(u.geminiApiKey);
+        }
+      } catch (e) {
+        console.error("Error fetching user geminiApiKey:", e);
+      }
+    }
+    socket.userApiKey = userApiKey;
 
     // Add user to room
     socket.join(roomName);
 
-    connectDeepgram(roomName, role);
-
-    if (role === "interviewer") {
-      const initialQuestions =
-        await nextQuestionAgent.process(null, null, 0);
-
-      socket.emit(
-        "ai-suggested-questions",
-        initialQuestions
-      );
-    }
+    connectDeepgram(roomName, role, userApiKey);
 
     // Track user
     if (!interviewSessions.has(roomName)) {
@@ -102,7 +110,13 @@ io.on("connection", (socket) => {
     if (!activeUsers.has(roomName)) {
       activeUsers.set(roomName, []);
     }
-    activeUsers.get(roomName).push({ socketId: socket.id, userName, email });
+    const roomUsers = activeUsers.get(roomName);
+    const existingIdx = roomUsers.findIndex(u => u.socketId === socket.id);
+    if (existingIdx !== -1) {
+      roomUsers[existingIdx] = { socketId: socket.id, userName, email, geminiApiKey: userApiKey };
+    } else {
+      roomUsers.push({ socketId: socket.id, userName, email, geminiApiKey: userApiKey });
+    }
 
 
     // Get all users in this room
@@ -119,7 +133,7 @@ io.on("connection", (socket) => {
   });
   socket.on("interviewer:transcript", async ({ roomName, transcript }) => {
     const result =
-      await interviewController.processInterviewerSpeech(roomName, transcript);
+      await interviewController.processInterviewerSpeech(transcript);
 
     if (result.type === "QUESTION") {
 
@@ -159,11 +173,13 @@ io.on("connection", (socket) => {
       Buffer.from(new Int16Array(data.pcm).buffer)
     );
   });
-  socket.on("refresh-suggestions", async ({ roomName }) => {
-    const nextQuestions =
-      await interviewController.refreshSuggestions(roomName);
-
-    socket.emit("ai-suggested-questions", nextQuestions);
+<<<<<<< HEAD
+  socket.on("refresh-suggestions", ({ roomName }) => {
+    socket.emit("ai-suggested-questions", [
+      "Explain TreeMap.",
+      "What is LinkedHashMap?",
+      "How does HashMap handle collisions?"
+    ]);
   });
   // When user leaves meeting
   socket.on("leaveMeeting", (data) => {
@@ -237,48 +253,48 @@ io.on("connection", (socket) => {
 // Middleware
 app.use(cors());
 app.use(express.json());
-// app.post("/interview/question", async (req, res) => {
-//   try {
-//     const response = await ai.models.generateContent({
-//       model: "gemini-2.5-flash",
-//       contents: `Generate exactly 3 interview questions for a java developer.
-//       Rules:
-//         - Return only questions
-//         - One question per line 
-//         - No numbering
-//         - No extra text
-//         `,
-//     });
-//   } catch (error) {
-//     console.error("Gemini Error:", error);
+app.post("/interview/question", async (req, res) => {
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: `Generate exactly 3 interview questions for a java developer.
+      Rules:
+        - Return only questions
+        - One question per line 
+        - No numbering
+        - No extra text
+        `,
+    });
+  } catch (error) {
+    console.error("Gemini Error:", error);
 
-//     res.status(500).json({
-//       message: "Failed to generate questions",
-//     });
-//   }
-// });
-// app.post("/interview/select-question", (req, res) => {
-//   const { question } = req.body;
+    res.status(500).json({
+      message: "Failed to generate questions",
+    });
+  }
+});
+app.post("/interview/select-question", (req, res) => {
+  const { question } = req.body;
 
-//   if (!interviewSessions["default"]) {
-//     interviewSessions["default"] = {
-//       qaPairs: []
-//     };
-//   }
+  if (!interviewSessions["default"]) {
+    interviewSessions["default"] = {
+      qaPairs: []
+    };
+  }
 
-//   interviewSessions["default"].qaPairs.push({
-//     question,
-//     answer: ""
-//   });
+  interviewSessions["default"].qaPairs.push({
+    question,
+    answer: ""
+  });
 
-//   console.log(
-//     JSON.stringify(interviewSessions, null, 2)
-//   );
+  console.log(
+    JSON.stringify(interviewSessions, null, 2)
+  );
 
-//   res.json({
-//     success: true
-//   });
-// });
+  res.json({
+    success: true
+  });
+});
 // Static files for uploaded content
 app.use("/uploads", express.static("src/uploads"));
 

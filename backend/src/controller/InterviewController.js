@@ -40,7 +40,7 @@ class InterviewController {
   }
 
   // Interviewee ka answer aayega
-  async processIntervieweeSpeech(roomName, transcript) {
+  async processIntervieweeSpeech(roomName, transcript, userApiKey) {
     const question = questionAgent.getCurrentQuestion(roomName);
 
     if (!question) {
@@ -48,10 +48,13 @@ class InterviewController {
         error: "No active question found.",
       };
     }
+
     const evaluation = await evaluationAgent.process(
       question,
-      transcript
+      transcript,
+      userApiKey
     );
+
     const followUpCount = this.followUpCounts.get(roomName) || 0;
     if (!this.evaluations.has(roomName)) {
       this.evaluations.set(roomName, []);
@@ -69,7 +72,8 @@ class InterviewController {
     const nextQuestions = await nextQuestionAgent.process(
       question,
       evaluation,
-      updatedFollowUpCount
+      updatedFollowUpCount,
+      userApiKey
     );
 
     return {

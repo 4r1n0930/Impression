@@ -1,12 +1,13 @@
 import { evaluationPrompt } from "./prompts/evaluationPrompt.js";
-import { model } from "../config/gemini.js";
+import { getGeminiModel } from "../config/gemini.js";
 
 class EvaluationAgent {
-  async process(question, answer) {
+  async process(question, answer, userApiKey) {
     console.log("Evaluation Agent Running...");
 
     try {
       const prompt = evaluationPrompt(question, answer);
+      const model = getGeminiModel(userApiKey);
 
       const result = await model.generateContent({
         model: "gemini-flash-latest",

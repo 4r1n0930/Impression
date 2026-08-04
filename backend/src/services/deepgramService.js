@@ -47,6 +47,7 @@ export function createDeepgramConnection(socket,
   }
   );
 
+<<<<<<< HEAD
   connection.on(LiveTranscriptionEvents.Close, () => {
 
     clearInterval(keepAliveInterval);

@@ -1,13 +1,14 @@
 import { nextQuestionPrompt } from "./prompts/nextQuestion.prompt.js";
-import { model } from "../config/gemini.js";
+import { getGeminiModel } from "../config/gemini.js";
 
 class NextQuestionAgent {
-  async process(question = null, evaluation = null, followUpCount = 0) {
+  async process(question, evaluation, followUpCount = 0, userApiKey) {
     try {
       const prompt = nextQuestionPrompt(question, evaluation, followUpCount);
+      const geminiModel = getGeminiModel(userApiKey);
 
-      const result = await model.generateContent({
-        model: "gemini-flash-latest",
+      const result = await geminiModel.generateContent({
+        model: "gemini-2.5-flash",
         location: "global",
         contents: prompt,
       });

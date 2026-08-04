@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import {
   LiveKitRoom,
   ParticipantTile,
@@ -15,7 +15,7 @@ import { BACKEND_URL } from "../config";
 import "../style/InterviewRoom.css";
 import { io, Socket } from "socket.io-client";
 import AudioCapture from "../../public/audio/AudioCapture";
-import { useRef } from "react";
+import { Mic, MicOff, Video, VideoOff, Monitor, MessageSquare, PhoneOff, Users, Copy, Sparkles, RefreshCw } from "lucide-react";
 
 const socket: Socket = io(BACKEND_URL);
 
@@ -25,13 +25,15 @@ const InterviewerLayout = ({ roomName, name }: { roomName: string; name: string 
   const { localParticipant, isMicrophoneEnabled, isCameraEnabled, isScreenShareEnabled } = useLocalParticipant();
   const captureRef = useRef<AudioCapture | null>(null);
   const room = useRoomContext();
-  const tracks = useTracks([Track.Source.Camera]);
-  type SuggestedQuestion = {
-  type: "FOLLOW_UP" | "NEXT";
-  question: string;
-};
+  
+  const cameraTracks = useTracks([{ source: Track.Source.Camera, withPlaceholder: true }]);
+  const screenShareTracks = useTracks([{ source: Track.Source.ScreenShare, withPlaceholder: false }]);
 
-const [suggestedQuestions, setSuggestedQuestions] = useState<SuggestedQuestion[]>([]);
+  const [suggestedQuestions, setSuggestedQuestions] = useState([
+    "What is HashMap?",
+    "Explain ConcurrentHashMap.",
+    "Difference between HashMap and Hashtable."
+  ]);
 
   useEffect(() => {
     const startPCM = async () => {
@@ -74,9 +76,6 @@ const [suggestedQuestions, setSuggestedQuestions] = useState<SuggestedQuestion[]
             speakerName: name,
             pcm: Array.from(pcm),
           });
-
-          // next step
-          // socket.emit(...)
         });
       } catch (err) {
         console.error(err);
@@ -88,11 +87,11 @@ const [suggestedQuestions, setSuggestedQuestions] = useState<SuggestedQuestion[]
     return () => {
       captureRef.current?.stop();
     };
-  }, [localParticipant, isMicrophoneEnabled]);
+  }, [localParticipant, isMicrophoneEnabled, roomName, name]);
 
   useEffect(() => {
     socket.on("ai-suggested-questions", (questions) => {
-      setSuggestedQuestions(questions.questions);
+      setSuggestedQuestions(questions);
     });
 
     return () => {
@@ -100,23 +99,68 @@ const [suggestedQuestions, setSuggestedQuestions] = useState<SuggestedQuestion[]
     };
   }, []);
 
+  const isInterviewee = (participant: any) => {
+    if (!participant) return false;
+    try {
+      const meta = JSON.parse(participant.metadata || "{}");
+      if (meta.role === "INTERVIEWEE" || meta.role === "interviewee") return true;
+    } catch (e) {
+      // ignore
+    }
+    return false;
+  };
 
-  const intervieweeTrack = tracks.find((t) => !t.participant.identity.startsWith("interviewer-"));
-  const interviewerTracks = tracks.filter((t) => t.participant.identity.startsWith("interviewer-"));
+  // Identify remote candidate (interviewee)
+  const candidateTrackRef = cameraTracks.find((t: any) => !t.participant.isLocal && isInterviewee(t.participant))
+    || cameraTracks.find((t: any) => !t.participant.isLocal);
+
+  const candidateIdentity = candidateTrackRef?.participant?.identity;
+
+  // Top row: All interviewers (local + remote co-interviewers)
+  const interviewerTracks = cameraTracks.filter(
+    (t: any) => t.participant.identity !== candidateIdentity
+  );
+
+  // Candidate camera track
+  const candidateCamTrack = candidateIdentity
+    ? cameraTracks.find((t: any) => t.participant.identity === candidateIdentity)
+    : null;
+
+  // Candidate screen share track (if active)
+  const candidateScreenTrack = candidateIdentity
+    ? screenShareTracks.find((t: any) => t.participant.identity === candidateIdentity)
+    : null;
+
   const meetingLink = `${window.location.origin}/room/${roomName}`;
 
   const leaveRoom = () => {
     socket.emit("leaveMeeting", { roomName, userName: name });
     room.disconnect();
+    navigate(`/feedback/${encodeURIComponent(roomName)}`);
   };
 
-  const toggleMic = () => localParticipant.setMicrophoneEnabled(!isMicrophoneEnabled);
-  const toggleCam = () => localParticipant.setCameraEnabled(!isCameraEnabled);
-  const toggleScreenShare = () => localParticipant.setScreenShareEnabled(!isScreenShareEnabled);
-  const handleRefreshSuggestions = () => {
-    socket.emit("refresh-suggestions", {
-      roomName,
-    });
+  const toggleMic = async () => {
+    try {
+      await localParticipant.setMicrophoneEnabled(!isMicrophoneEnabled);
+    } catch (e) {
+      console.error("Error toggling mic:", e);
+    }
+  };
+
+  const toggleCam = async () => {
+    try {
+      await localParticipant.setCameraEnabled(!isCameraEnabled);
+    } catch (e) {
+      console.error("Error toggling camera:", e);
+    }
+  };
+
+  const toggleScreenShare = async () => {
+    try {
+      await localParticipant.setScreenShareEnabled(!isScreenShareEnabled);
+    } catch (e) {
+      console.error("Error toggling screen share:", e);
+    }
   };
 
   return (
@@ -125,62 +169,86 @@ const [suggestedQuestions, setSuggestedQuestions] = useState<SuggestedQuestion[]
         <div className="header-left">
           <span className="link-label">Link:</span>
           <code className="link-code">{meetingLink}</code>
-          <button className="copy-btn" onClick={() => navigator.clipboard.writeText(meetingLink)}>
-            Copy
+          <button className="copy-btn" style={{ display: "inline-flex", alignItems: "center", gap: "4px" }} onClick={() => navigator.clipboard.writeText(meetingLink)}>
+            <Copy size={13} /> Copy
           </button>
         </div>
         <h2 className="room-name">{roomName}</h2>
-        <div className="participant-count">👥 {participants.length}</div>
+        <div className="participant-count" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+          <Users size={16} /> {participants.length}
+        </div>
       </header>
 
       <main className="interview-room-main">
         <div className="interview-content">
           <div className="video-section">
+            {/* Top Row: All Interviewers */}
             <div className="interviewer-row">
               {interviewerTracks.length === 0 ? (
-                <p className="waiting-text">No other interviewers</p>
+                <p className="waiting-text">No interviewers</p>
               ) : (
-                interviewerTracks.map((t) => (
-                  <div key={t.participant.identity} className="interviewer-tile">
+                interviewerTracks.map((t: any) => (
+                  <div key={t.participant.identity + "_" + (t.source || "cam")} className="interviewer-tile">
                     <ParticipantTile trackRef={t} />
                     <span className="participant-label">
-                      {t.participant.name || t.participant.identity}
+                      {t.participant.name || t.participant.identity} {t.participant.isLocal ? "(You)" : ""}
                     </span>
                   </div>
                 ))
               )}
             </div>
 
+            {/* Center Area: Participant & Screen Share (if shared) */}
             <div className="interviewee-section">
-              {intervieweeTrack ? (
-                <div className="interviewee-tile-large">
-                  <ParticipantTile trackRef={intervieweeTrack} />
-                  <span className="participant-label">
-                    {intervieweeTrack.participant.name || "Interviewee"}
-                  </span>
+              {!candidateIdentity ? (
+                <div className="waiting-container" style={{ textAlign: "center" }}>
+                  <p className="waiting-text">Waiting for interviewee to join...</p>
                 </div>
               ) : (
-                <p className="waiting-text">Waiting for interviewee to join...</p>
+                <div className={`interviewee-stage-container ${candidateScreenTrack ? "has-screen-share" : ""}`}>
+                  {/* Candidate Screen Share if active */}
+                  {candidateScreenTrack && (
+                    <div className="interviewee-tile-large screen-tile">
+                      <ParticipantTile trackRef={candidateScreenTrack} />
+                      <span className="participant-label">
+                        {candidateScreenTrack.participant.name || "Interviewee"}'s Screen
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Candidate Camera */}
+                  {candidateCamTrack && (
+                    <div className="interviewee-tile-large">
+                      <ParticipantTile trackRef={candidateCamTrack} />
+                      <span className="participant-label">
+                        {candidateCamTrack.participant.name || "Interviewee"}
+                      </span>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           </div>
 
           <div className="ai-panel">
-            <h3>🤖 AI Suggested Questions</h3>
+            <h3 style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
+              <Sparkles size={18} color="#60a5fa" /> AI Suggested Questions
+            </h3>
 
             {suggestedQuestions.map((question, index) => (
               <div key={index} className="question-card">
-                {index + 1}. {question.question}
+                {index + 1}. {question}
               </div>
             ))}
 
             <button
               className="refresh-btn"
+              style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}
               onClick={() => {
-                handleRefreshSuggestions();
+                socket.emit("refresh-suggestions", { roomName });
               }}
             >
-              🔄 Refresh Suggestions
+              <RefreshCw size={16} /> Refresh Suggestions
             </button>
           </div>
         </div>
@@ -192,27 +260,27 @@ const [suggestedQuestions, setSuggestedQuestions] = useState<SuggestedQuestion[]
           onClick={toggleMic}
           title={isMicrophoneEnabled ? "Mute" : "Unmute"}
         >
-          {isMicrophoneEnabled ? "🎤" : "🔇"}
+          {isMicrophoneEnabled ? <Mic size={20} /> : <MicOff size={20} />}
         </button>
         <button
           className={"control-btn" + (isCameraEnabled ? " active" : " inactive")}
           onClick={toggleCam}
           title={isCameraEnabled ? "Camera Off" : "Camera On"}
         >
-          {isCameraEnabled ? "📹" : "🚫"}
+          {isCameraEnabled ? <Video size={20} /> : <VideoOff size={20} />}
         </button>
         <button
           className={"control-btn" + (isScreenShareEnabled ? " screen-active" : " active")}
           onClick={toggleScreenShare}
           title={isScreenShareEnabled ? "Stop Sharing" : "Share Screen"}
         >
-          🖥️
+          <Monitor size={20} />
         </button>
         <button className="control-btn chat" title="Chat">
-          💬
+          <MessageSquare size={20} />
         </button>
         <button className="control-btn leave" onClick={leaveRoom} title="Leave">
-          📞
+          <PhoneOff size={20} />
         </button>
       </footer>
     </div>
@@ -226,7 +294,6 @@ const InterviewRoom = () => {
   const [token, setToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [userName, setUserName] = useState("");
-  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isJoining, setIsJoining] = useState(false);
   const [roomStatus, setRoomStatus] = useState<"loading" | "valid" | "invalid">("loading");
@@ -241,8 +308,6 @@ const InterviewRoom = () => {
       .catch(() => setRoomStatus("invalid"));
   }, [roomName]);
 
-
-
   useEffect(() => {
     return () => {
       if (roomName && userName) {
@@ -252,7 +317,7 @@ const InterviewRoom = () => {
   }, [roomName, userName]);
 
   const handleJoin = async () => {
-    if (!userName.trim() || !email.trim() || !roomName) return;
+    if (!userName.trim() || !roomName) return;
     setIsJoining(true);
     setError(null);
 
@@ -267,13 +332,17 @@ const InterviewRoom = () => {
       socket.emit("joinMeeting", {
         roomName,
         userName: userName,
-        email: email,
         role: "interviewer"
       });
 
       setToken(res.data.token);
     } catch (err: any) {
-      setError(err.response?.data?.message || "Failed to join room. You might not be authorized.");
+      const msg = err.response?.data?.message || "Failed to join room. You might not be authorized.";
+      setError(msg);
+      if (msg.toLowerCase().includes("full")) {
+        alert(msg);
+        navigate("/");
+      }
     } finally {
       setIsJoining(false);
     }
@@ -292,17 +361,18 @@ const InterviewRoom = () => {
       <div className="error-container">
         <h2>Room not found</h2>
         <p>The meeting room you're looking for doesn't exist.</p>
-        <button onClick={() => navigate("/")}>Back to Dashboard</button>
+        <button onClick={() => navigate("/")}>Back to Landing</button>
       </div>
     );
   }
 
   if (error) {
+    const isRoomFull = error.toLowerCase().includes("full");
     return (
       <div className="error-container">
-        <h2>Access Denied</h2>
+        <h2>{isRoomFull ? "Room Full" : "Access Denied"}</h2>
         <p>{error}</p>
-        <button onClick={() => navigate("/roomConfig")}>Back to Dashboard</button>
+        <button onClick={() => navigate("/")}>Back to Landing</button>
       </div>
     );
   }
@@ -323,14 +393,6 @@ const InterviewRoom = () => {
               required
             />
             <input
-              type="email"
-              placeholder="Enter your email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="form-input"
-              required
-            />
-            <input
               type="password"
               placeholder="Enter room password"
               value={password}
@@ -341,7 +403,7 @@ const InterviewRoom = () => {
             <button
               className="submit-button"
               onClick={() => handleJoin()}
-              disabled={isJoining || !userName || !email || !password}
+              disabled={isJoining || !userName || !password}
             >
               {isJoining ? "Joining..." : "Join Room"}
             </button>
@@ -358,7 +420,7 @@ const InterviewRoom = () => {
       token={token}
       serverUrl={LIVEKIT_URL}
       onDisconnected={() => {
-        navigate("/");
+        navigate(`/feedback/${encodeURIComponent(roomName || "")}`);
       }}
       data-lk-theme="default"
       className="livekit-container"

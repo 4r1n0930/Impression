@@ -1,11 +1,9 @@
 export const nextQuestionPrompt = (
-  question = null,
-  evaluation = null,
+  question,
+  evaluation,
   followUpCount = 0
 ) => {
-  // ==========================
-  // INITIAL INTERVIEW
-  // ==========================
+  // If no evaluation yet, return the initial interview prompt (opening questions)
   if (evaluation === null) {
     return `
 You are assisting a human interviewer.
@@ -48,9 +46,7 @@ Do not use markdown.
 `;
   }
 
-  // ==========================
-  // AFTER EVALUATION
-  // ==========================
+  // After evaluation: return suggestions based on current question and its evaluation
   return `
 You are assisting a human interviewer.
 
@@ -66,12 +62,11 @@ ${followUpCount}
 Generate exactly 3 interview question suggestions.
 
 Rules:
-1. If followUpCount < 2 AND important concepts are missing, include EXACTLY ONE follow-up question.
-2. If followUpCount >= 2, DO NOT generate another follow-up question.
-3. Remaining questions should move naturally to the next logical topic.
-4. Do not strictly repeat the current interview questions which were asked before make sure that.
+1. If followUpCount < 2 and important concepts are missing, include ONE follow-up question.
+2. If followUpCount >= 2, DO NOT generate another follow-up. Move to the next logical topic.
+3. Remaining questions should be new questions that naturally continue the interview.
+4. Do not repeat the current question.
 5. Keep questions concise.
-6. Return exactly 3 questions.
 
 Return ONLY valid JSON.
 
