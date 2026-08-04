@@ -1,24 +1,36 @@
 import questionAgent from "../agents/QuestionAgent.js";
 import evaluationAgent from "../agents/EvaluationAgent.js";
+import nextQuestionAgent from "../agents/NextQuestionAgent.js";
 
 class InterviewController {
   constructor() {
-    this.currentQuestion = null;
-    this.evaluations = [];
+    // roomName -> current question
+    this.currentQuestions = new Map();
+
+    // roomName -> evaluations[]
+    this.evaluations = new Map();
+
+    //follow-up question limit
+    this.followUpCounts = new Map();
   }
 
   // Interviewer ka speech aayega
-  async processInterviewerSpeech(transcript) {
-    const result = await questionAgent.process(transcript);
+  async processInterviewerSpeech(roomName, transcript) {
 
-    if (result.isQuestion) {
-      this.currentQuestion = result;
+    const result = questionAgent.process(roomName, transcript);
 
-      console.log("Current Question:", this.currentQuestion.question);
+    if (result.success) {
+      this.currentQuestions.set(roomName, result.question);
+
+      console.log(
+        `Current Question [${roomName}]:`,
+        result.question
+      );
 
       return {
         type: "QUESTION",
-        question: this.currentQuestion.question,
+        roomName,
+        question: result.question,
       };
     }
 
@@ -28,30 +40,77 @@ class InterviewController {
   }
 
   // Interviewee ka answer aayega
-  async processIntervieweeSpeech(question,transcript) {
-    if (!this.currentQuestion) {
+  async processIntervieweeSpeech(roomName, transcript) {
+    const question = questionAgent.getCurrentQuestion(roomName);
+
+    if (!question) {
       return {
         error: "No active question found.",
       };
     }
-
     const evaluation = await evaluationAgent.process(
       question,
       transcript
     );
+    const followUpCount = this.followUpCounts.get(roomName) || 0;
+    if (!this.evaluations.has(roomName)) {
+      this.evaluations.set(roomName, []);
+    }
 
-    this.evaluations.push({
-      question: this.currentQuestion.question,
+    this.evaluations.get(roomName).push({
+      question,
       answer: transcript,
       evaluation,
     });
 
-    return evaluation;
+    const updatedFollowUpCount = followUpCount + 1;
+    this.followUpCounts.set(roomName, updatedFollowUpCount);
+
+    const nextQuestions = await nextQuestionAgent.process(
+      question,
+      evaluation,
+      updatedFollowUpCount
+    );
+
+    return {
+      evaluation,
+      nextQuestions,
+    };
+  }
+
+  async refreshSuggestions(roomName) {
+    const history = this.evaluations.get(roomName);
+
+    if (!history || history.length === 0) {
+      return await nextQuestionAgent.process(
+        null,
+        null,
+        0
+      );
+    }
+
+    const latest = history[history.length - 1];
+
+    const followUpCount =
+      this.followUpCounts.get(roomName) || 0;
+
+    return await nextQuestionAgent.process(
+      latest.question,
+      latest.evaluation,
+      followUpCount
+    );
   }
 
   // Interview khatam hone par
-  getInterviewData() {
-    return this.evaluations;
+  getInterviewData(roomName) {
+    return this.evaluations.get(roomName) || [];
+  }
+
+  // Memory cleanup
+  clearInterview(roomName) {
+    questionAgent.clear(roomName);
+    this.currentQuestions.delete(roomName);
+    this.evaluations.delete(roomName);
   }
 }
 

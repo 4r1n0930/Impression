@@ -2,16 +2,17 @@ import { nextQuestionPrompt } from "./prompts/nextQuestion.prompt.js";
 import { model } from "../config/gemini.js";
 
 class NextQuestionAgent {
-  async process(question, evaluation) {
+  async process(question = null, evaluation = null, followUpCount = 0) {
     try {
-      const prompt = nextQuestionPrompt(question, evaluation);
+      const prompt = nextQuestionPrompt(question, evaluation, followUpCount);
 
       const result = await model.generateContent({
-        model: "gemini-2.5-flash",
+        model: "gemini-flash-latest",
+        location: "global",
         contents: prompt,
       });
 
-      let response = result.text().trim();
+      let response = result.candidates[0].content.parts[0].text.trim();
 
       if (response.startsWith("```json")) {
         response = response

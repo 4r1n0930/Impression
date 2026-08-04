@@ -9,11 +9,12 @@ class EvaluationAgent {
       const prompt = evaluationPrompt(question, answer);
 
       const result = await model.generateContent({
-        model: "gemini-2.5-flash",
+        model: "gemini-flash-latest",
+        location: "global",
         contents: prompt,
       });
-
-      let response = result.text().trim();
+      let response =
+        result.candidates[0].content.parts[0].text.trim();
 
       // Remove markdown if Gemini returns ```json ... ```
       if (response.startsWith("```json")) {
@@ -25,18 +26,7 @@ class EvaluationAgent {
     } catch (error) {
       console.error("Evaluation Agent Error:", error);
 
-      return {
-        score: 0,
-        technicalAccuracy: 0,
-        completeness: 0,
-        communication: 0,
-        confidence: 0,
-        strengths: [],
-        weaknesses: [],
-        missingConcepts: [],
-        followUpRequired: false,
-        followUpReason: "Evaluation Failed"
-      };
+      return;
     }
   }
 }

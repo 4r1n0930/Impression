@@ -1,23 +1,28 @@
 class QuestionAgent {
   constructor() {
-    this.currentQuestion = null;
+    this.currentQuestions = new Map();
   }
 
-  setCurrentQuestion(question) {
-    this.currentQuestion = question;
+  setCurrentQuestion(roomName, question) {
+    this.currentQuestions.set(roomName, question);
   }
 
-  getCurrentQuestion() {
-    return this.currentQuestion;
+  getCurrentQuestion(roomName) {
+    return this.currentQuestions.get(roomName);
   }
 
-  process(question) {
-    this.setCurrentQuestion(question);
+  process(roomName, question) {
+    this.setCurrentQuestion(roomName, question);
 
     return {
       success: true,
+      roomName,
       question,
     };
+  }
+
+  clear(roomName) {
+    this.currentQuestions.delete(roomName);
   }
 }
 
