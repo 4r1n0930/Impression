@@ -30,14 +30,18 @@ const RoomConfig: React.FC = () => {
     setLoading(true);
     setError("");
 
+    const nameToUse = roomName.trim() || `room-${Math.random().toString(36).substring(2, 8)}`;
+
     try {
       const token = localStorage.getItem("token");
       const res = await axios.post(
         `${BACKEND_URL}/rooms`,
-        { roomName, maxInterviewers, password },
+        { roomName: nameToUse, maxInterviewers, password },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      navigate(`/interviewee/${res.data.room.name}`, {
+      const createdRoomName = res.data.room.name;
+
+      navigate(`/interviewee/${encodeURIComponent(createdRoomName)}`, {
         state: { password },
       });
     } catch (err: any) {

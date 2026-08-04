@@ -10,6 +10,7 @@ import fs from "fs";
 import protect from "../middleware/authMiddleware.js";
 
 import User from "../models/User.js";
+import { encrypt, decrypt } from "../utils/cryptoUtils.js";
 
 const router = express.Router();
 
@@ -454,6 +455,53 @@ router.put("/update-name", protect, async (req, res) => {
     res.status(500).json({
       message: error.message,
     });
+  }
+});
+
+// @desc    Update user's Gemini API key (Encrypted at rest)
+// @route   PUT /auth/update-api-key
+router.put("/update-api-key", protect, async (req, res) => {
+  try {
+    const { geminiApiKey } = req.body;
+    const encryptedKey = geminiApiKey ? encrypt(geminiApiKey) : "";
+
+    const user = await User.findByIdAndUpdate(
+      req.user.userId,
+      { geminiApiKey: encryptedKey },
+      { new: true }
+    );
+
+    res.json({
+      message: "Gemini API Key updated & encrypted successfully",
+      hasGeminiApiKey: Boolean(user.geminiApiKey),
+    });
+  } catch (error) {
+    console.error("Update API key error:", error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// @desc    Get user profile data including decrypted API Key status
+// @route   GET /auth/profile
+router.get("/profile", protect, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const decryptedKey = decrypt(user.geminiApiKey);
+
+    res.json({
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      profilePhoto: user.profilePhoto,
+      geminiApiKey: decryptedKey || "",
+      hasGeminiApiKey: Boolean(user.geminiApiKey),
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 });
 

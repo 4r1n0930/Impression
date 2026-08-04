@@ -40,7 +40,7 @@ class InterviewController {
   }
 
   // Interviewee ka answer aayega
-  async processIntervieweeSpeech(roomName, transcript) {
+  async processIntervieweeSpeech(roomName, transcript, userApiKey) {
     const question = questionAgent.getCurrentQuestion(roomName);
 
     if (!question) {
@@ -50,7 +50,8 @@ class InterviewController {
     }
     const evaluation = await evaluationAgent.process(
       question,
-      transcript
+      transcript,
+      userApiKey
     );
     const followUpCount = this.followUpCounts.get(roomName) || 0;
     if (!this.evaluations.has(roomName)) {
@@ -65,7 +66,8 @@ class InterviewController {
     const nextQuestions = await nextQuestionAgent.process(
       question,
       evaluation,
-      followUpCount
+      followUpCount,
+      userApiKey
     );
     console.log(nextQuestions);
 

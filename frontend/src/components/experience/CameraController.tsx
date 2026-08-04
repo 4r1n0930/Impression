@@ -9,8 +9,14 @@ import {
   CAMERA_FOV_START,
   CAMERA_FOV_END,
 } from '../../utils/cameraPath'
+import {
+  getInteractionState,
+  setInteractionState,
+} from '../../utils/interactionState'
 
 const LERP_SPEED = 4.0
+const GATE_THRESHOLD = 0.98
+const GATE_EXIT_THRESHOLD = 0.92
 
 export default function CameraController() {
   const { camera } = useThree()
@@ -41,6 +47,16 @@ export default function CameraController() {
 
     cam.fov = MathUtils.lerp(CAMERA_FOV_START, CAMERA_FOV_END, t)
     cam.updateProjectionMatrix()
+
+    const current = getInteractionState()
+    if (current === 'LOCKED' && smoothedProgress.current >= GATE_THRESHOLD) {
+      setInteractionState('READY_FOR_SCAN')
+    } else if (
+      current === 'READY_FOR_SCAN' &&
+      smoothedProgress.current < GATE_EXIT_THRESHOLD
+    ) {
+      setInteractionState('LOCKED')
+    }
   })
 
   return null

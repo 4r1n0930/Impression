@@ -16,6 +16,8 @@ import interviewController from "./src/controller/InterviewController.js";
 import { createDeepgramConnection } from "./src/services/deepgramService.js";
 import transcriptService from "./src/services/transcriptService.js";
 import nextQuestionAgent from "./src/agents/NextQuestionAgent.js";
+import User from "./src/models/User.js";
+import { decrypt } from "./src/utils/cryptoUtils.js";
 
 const interviewSessions = new Map();
 const deepgramConnections = new Map();
@@ -51,7 +53,10 @@ const activeUsers = new Map(); // roomName -> [{ socketId, userName, email }]
 
 io.on("connection", (socket) => {
   console.log(" User Connected:", socket.id);
-  function connectDeepgram(roomName, role) {
+  function connectDeepgram(roomName, role, userApiKey) {
+    if (deepgramConnections.has(socket.id)) {
+      return deepgramConnections.get(socket.id);
+    }
     const connection = createDeepgramConnection(
       socket,
       roomName,
@@ -64,6 +69,7 @@ io.on("connection", (socket) => {
           role,
           transcript,
           interviewSessions,
+          userApiKey: socket.userApiKey || userApiKey,
         });
 
       }
@@ -74,13 +80,26 @@ io.on("connection", (socket) => {
     return connection;
   }
   // When user joins a meeting room
-  socket.on("joinMeeting", (data) => {
-    const { roomName, userName, email, role } = data;
+  socket.on("joinMeeting", async (data) => {
+    const { roomName, userName, email, role, geminiApiKey } = data;
+
+    let userApiKey = geminiApiKey ? decrypt(geminiApiKey) : "";
+    if (!userApiKey && email) {
+      try {
+        const u = await User.findOne({ email });
+        if (u && u.geminiApiKey) {
+          userApiKey = decrypt(u.geminiApiKey);
+        }
+      } catch (e) {
+        console.error("Error fetching user geminiApiKey:", e);
+      }
+    }
+    socket.userApiKey = userApiKey;
 
     // Add user to room
     socket.join(roomName);
 
-    connectDeepgram(roomName, role);
+    connectDeepgram(roomName, role, userApiKey);
 
     // Track user
     if (!interviewSessions.has(roomName)) {
@@ -92,7 +111,13 @@ io.on("connection", (socket) => {
     if (!activeUsers.has(roomName)) {
       activeUsers.set(roomName, []);
     }
-    activeUsers.get(roomName).push({ socketId: socket.id, userName, email });
+    const roomUsers = activeUsers.get(roomName);
+    const existingIdx = roomUsers.findIndex(u => u.socketId === socket.id);
+    if (existingIdx !== -1) {
+      roomUsers[existingIdx] = { socketId: socket.id, userName, email, geminiApiKey: userApiKey };
+    } else {
+      roomUsers.push({ socketId: socket.id, userName, email, geminiApiKey: userApiKey });
+    }
 
 
     // Get all users in this room

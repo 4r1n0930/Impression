@@ -9,8 +9,8 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   const token = localStorage.getItem('token');
 
   if (!token) {
-    // Redirect to login if there is no token
-    return <Navigate to="/login" replace />;
+    // Redirect to 3D landing page if there is no token
+    return <Navigate to="/" replace />;
   }
 
   return <>{children}</>;

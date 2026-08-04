@@ -4,8 +4,6 @@ import ProtectedRoute from './ProtectedRoute';
 import Profile from './pages/Profile';
 
 const Landing = lazy(() => import('./pages/Landing'));
-const Login = lazy(() => import('./pages/Login'));
-const Signup = lazy(() => import('./pages/Signup'));
 const VerifyEmail = lazy(() => import('./pages/VerifyEmail'));
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword'));
@@ -13,6 +11,7 @@ const Dashboard = lazy(() => import('./pages/Dashboard'));
 const RoomConfig = lazy(() => import('./pages/RoomConfig'));
 const InterviewRoom = lazy(() => import('./pages/InterviewRoom'));
 const Interviewee = lazy(() => import('./pages/Interviewee'));
+const Feedback = lazy(() => import('./pages/Feedback'));
 
 const LoadingFallback: React.FC = () => (
   <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
@@ -33,8 +32,8 @@ const App: React.FC = () => {
       <Suspense fallback={<LoadingFallback />}>
         <Routes>
           <Route path="/" element={<Landing />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/signup" element={<Signup />} />
+          <Route path="/login" element={<Navigate to="/" replace />} />
+          <Route path="/signup" element={<Navigate to="/" replace />} />
           <Route path="/verify-email" element={<VerifyEmail />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password/:token" element={<ResetPassword />} />
@@ -67,6 +66,8 @@ const App: React.FC = () => {
               </ProtectedRoute>
             } 
           />
+          <Route path="/feedback" element={<Feedback />} />
+          <Route path="/feedback/:roomName" element={<Feedback />} />
           
           {/* Catch-all route redirects to landing page */}
           <Route path="*" element={<Navigate to="/" replace />} />

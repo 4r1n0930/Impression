@@ -1,4 +1,4 @@
-import  { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from "react-router-dom";
 import axios from 'axios';
 import { BACKEND_URL } from "../config";
@@ -6,7 +6,6 @@ import '../style/Dashboard.css';
 
 const Dashboard = () => {
   const [user, setUser] = useState<any>(null);
-  const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showMenu, setShowMenu] = useState(false);
 
@@ -21,12 +20,9 @@ const Dashboard = () => {
             Authorization: `Bearer ${token}`
           }
         });
-        console.log('Dashboard data fetched:', res.data);
         setUser(res.data.user);
       } catch (err) {
         console.error('Failed to fetch dashboard data', err);
-        // If the token is invalid or expired, the ProtectedRoute might not catch it initially,
-        // but the API will. You could handle redirect to login here too.
       } finally {
         setLoading(false);
       }
@@ -39,59 +35,22 @@ const Dashboard = () => {
     if (!photoPath) return `https://ui-avatars.com/api/?name=${user?.email?.split('@')[0] || 'User'}&background=3b82f6&color=fff`;
     if (photoPath.startsWith('http')) return photoPath;
 
-    // Normalize path (replace backslashes with forward slashes)
     const normalizedPath = photoPath.replace(/\\/g, '/');
 
-    // Check if path already starts with uploads/ or /uploads/
     if (normalizedPath.startsWith('uploads/') || normalizedPath.startsWith('/uploads/')) {
       return `${BACKEND_URL}/${normalizedPath.startsWith('/') ? normalizedPath.slice(1) : normalizedPath}`;
     }
 
     return `${BACKEND_URL}/uploads/${normalizedPath}`;
   };
-  const handlePhotoChange = async (
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    try {
-      const file = e.target.files?.[0];
 
-      if (!file) return;
-
-      setUploading(true);
-
-      const formData = new FormData();
-      formData.append("profilePhoto", file);
-
-      const token = localStorage.getItem("token");
-
-      const res = await axios.put(
-        `${BACKEND_URL}/auth/update-profile-photo`,
-        formData,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`
-          },
-        }
-      );
-
-      setUser({
-        ...user,
-        profilePhoto: res.data.profilePhoto,
-      });
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setUploading(false);
-    }
-
-  }
   const handleLogout = () => {
     localStorage.removeItem("token");
-    localStorage.removeItem("user")
-    navigate("/login");
-  }
+    localStorage.removeItem("user");
+    navigate("/");
+  };
 
-  if (loading) return <div className="loading">Loading...</div>;
+  if (loading) return <div className="loading-state">Loading dashboard...</div>;
 
   return (
     <div className="dashboard-container">
@@ -101,93 +60,47 @@ const Dashboard = () => {
             <h1 className="logo">Impression</h1>
           </div>
         </div>
+
         <div className="header-right">
-          <div className="user-info" style={{ marginRight: '15px', textAlign: 'right' }}>
-            <span style={{ display: 'block', fontSize: '14px', fontWeight: '600' }}>{user?.email || 'User'}</span>
+          <div className="user-info">
+            <span className="user-email">{user?.email || 'User'}</span>
           </div>
-          <div className="avatar"
-            style={{ position: "relative", cursor: "pointer" }}
-          >
+
+          <div className="avatar-wrapper">
             <img
+              className="avatar-img"
               src={getProfileImageUrl(user?.profilePhoto)}
               alt="User Avatar"
               onClick={() => setShowMenu(!showMenu)}
               onError={(e) => {
                 const target = e.target as HTMLImageElement;
                 target.onerror = null;
-                target.src = `https://ui-avatars.com/api/?name=${user?.email?.split('@')[0] || 'User'}&background=3b82f6&color=fff`;
+                target.src = `https://ui-avatars.com/api/?name=${user?.email?.split('@')[0] || 'User'}&background=ffffff&color=09090b`;
               }}
             />
 
             {showMenu && (
-              <div
-                style={{
-                  position: "absolute",
-                  top: "60px",
-                  right: "0",
-                  width: "220px",
-                  background: "#fff",
-                  borderRadius: "10px",
-                  padding: "12px",
-                  boxShadow: "0 4px 12px rgba(0,0,0,0.2)",
-                  zIndex: 1000,
-                  color: "#000"
-                }}
-              >
-                <div
-                  style={{
-                    textAlign: "center",
-                    marginBottom: "10px"
-                  }}
-                >
+              <div className="profile-dropdown-menu">
+                <div className="menu-profile-section">
                   <img
+                    className="menu-avatar-img"
                     src={getProfileImageUrl(user?.profilePhoto)}
                     alt="Profile"
-                    style={{
-                      width: "60px",
-                      height: "60px",
-                      borderRadius: "50%"
-                    }}
                   />
-
-                  <p
-                    style={{
-                      marginTop: "8px",
-                      fontWeight: "bold"
-                    }}
-                  >
+                  <p className="menu-user-name">
                     {user?.name || user?.email}
                   </p>
                   <button
+                    className="dropdown-btn secondary-btn"
                     onClick={() => navigate("/profile")}
-                    style={{
-                      width: "100%",
-                      padding: "8px",
-                      marginTop: "10px",
-                      border: "none",
-                      borderRadius: "6px",
-                      cursor: "pointer",
-                      background: "#f3f4f6",
-                      textAlign: "center"
-                    }}
                   >
-                    Edit Profile
+                    Edit Profile & Settings
                   </button>
                 </div>
 
-
                 <button
+                  className="dropdown-btn danger-btn"
                   onClick={handleLogout}
-                  style={{
-                    width: "100%",
-                    marginTop: "10px",
-                    padding: "8px",
-                    border: "none",
-                    borderRadius: "6px",
-                    background: "#ef4444",
-                    color: "#fff",
-                    cursor: "pointer"
-                  }}
                 >
                   Logout
                 </button>
@@ -199,28 +112,17 @@ const Dashboard = () => {
 
       <main className="dashboard-main">
         <div className="dashboard-content">
-
           <div className="welcome-card">
             <h1 className="welcome-title">
-              Welcome back, {user?.name || user?.email?.split("@")[0]} ??
+              Welcome back, {user?.name || user?.email?.split("@")[0]}
             </h1>
-
             <p className="welcome-subtitle">
               Create and manage AI mock impressions with ease.
             </p>
           </div>
 
           <div className="action-card">
-            <Link
-              to="/roomConfig"
-              className="create-interview-button"
-              style={{
-                textDecoration: "none",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center"
-              }}
-            >
+            <Link to="/roomConfig" className="create-interview-button">
               <span className="plus-icon">+</span>
               Create Impression
             </Link>
@@ -230,7 +132,6 @@ const Dashboard = () => {
             <h3>Recent Activity</h3>
             <p>No impressions yet. Create your first impression.</p>
           </div>
-
         </div>
       </main>
     </div>
@@ -238,5 +139,3 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
-
-

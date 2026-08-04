@@ -13,6 +13,7 @@ class TranscriptService {
     role,
     transcript,
     interviewSessions,
+    userApiKey,
   }) {
 
     if (role === "interviewer") {
@@ -61,7 +62,8 @@ class TranscriptService {
         const evaluation =
           await interviewController.processIntervieweeSpeech(
             roomName,
-            finalAnswer
+            finalAnswer,
+            userApiKey
           );
 
         console.log(evaluation);

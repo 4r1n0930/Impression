@@ -1,6 +1,7 @@
 import Lighting from './Lighting'
 import Building from './Building'
 import CameraController from './CameraController'
+import EyeTracker from './EyeTracker'
 
 export default function Experience() {
   return (
@@ -9,6 +10,7 @@ export default function Experience() {
       <Lighting />
       <Building />
       <CameraController />
+      <EyeTracker />
     </>
   )
 }

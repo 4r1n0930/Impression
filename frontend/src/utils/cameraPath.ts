@@ -23,4 +23,5 @@ export const CAMERA_FOV_END = 40
 export const PHASE_NAMES = [
   'Establishing',
   'Zoom to Gate',
+  'Authentication',
 ]
