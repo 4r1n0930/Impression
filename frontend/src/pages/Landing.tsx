@@ -5,6 +5,7 @@ import { Loader } from '@react-three/drei'
 import Experience from '../components/experience/Experience'
 import DebugOverlay from '../components/DebugOverlay'
 import ScrollText from '../components/ScrollText'
+import AuthOverlay from '../components/auth/AuthOverlay'
 import { initScrollListener } from '../utils/scrollProgress'
 import '../style/Landing.css'
 
@@ -40,6 +41,7 @@ export default function Landing() {
       <Loader />
       <ScrollText />
       <DebugOverlay />
+      <AuthOverlay />
     </div>
   )
 }

@@ -2,6 +2,14 @@ import { useRef, useEffect } from 'react'
 import { useGLTF } from '@react-three/drei'
 import type { Group, Object3D, AnimationClip } from 'three'
 import { customizeMaterials } from '../../utils/customizeMaterials'
+import { setMonkeyNode, setGateNode } from '../../utils/eyePosition'
+import {
+  setIsEyeHovered,
+  setIsGateHovered,
+  getInteractionState,
+  setInteractionState,
+} from '../../utils/interactionState'
+import { getScrollProgress } from '../../utils/scrollProgress'
 
 const GLB_PATH = '/models/building.glb'
 const DRACO_DECODER_PATH = '/draco/'
@@ -46,13 +54,60 @@ export default function Building() {
       console.warn('[Building] Nodes missing:', missing)
     }
 
+    setMonkeyNode(nodeRefs.current['Suzanne'] ?? null)
+    setGateNode(nodeRefs.current['gate'] ?? null)
+
     customizeMaterials(scene)
     materialsApplied.current = true
   }, [scene])
 
   return (
     <group ref={groupRef}>
-      <primitive object={scene} />
+      <primitive
+        object={scene}
+        onPointerOver={(e: any) => {
+          e.stopPropagation()
+          let curr: Object3D | null = e.object
+          while (curr) {
+            if (curr.name === 'gate' || curr.name.toLowerCase().includes('gate')) {
+              setIsGateHovered(true)
+              document.body.style.cursor = 'pointer'
+              return
+            }
+            if (curr.name === 'Suzanne' || curr.name.toLowerCase().includes('suzanne')) {
+              setIsEyeHovered(true)
+              document.body.style.cursor = 'pointer'
+              return
+            }
+            curr = curr.parent
+          }
+        }}
+        onPointerOut={() => {
+          setIsGateHovered(false)
+          setIsEyeHovered(false)
+          document.body.style.cursor = 'default'
+        }}
+        onClick={(e: any) => {
+          e.stopPropagation()
+          let curr: Object3D | null = e.object
+          while (curr) {
+            if (curr.name === 'gate' || curr.name.toLowerCase().includes('gate')) {
+              if (getScrollProgress() >= 0.85 || getInteractionState() === 'READY_FOR_SCAN') {
+                setInteractionState('LOGIN_MODAL_OPEN')
+              }
+              return
+            }
+            if (curr.name === 'Suzanne' || curr.name.toLowerCase().includes('suzanne')) {
+              if (getInteractionState() === 'READY_FOR_SCAN') {
+                setInteractionState('SCANNING')
+              }
+              return
+            }
+            curr = curr.parent
+          }
+        }}
+      />
     </group>
   )
 }
+

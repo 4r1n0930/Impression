@@ -37,6 +37,11 @@ const userSchema = new mongoose.Schema(
     verificationCodeExpires: Date,
     resetPasswordToken: String,
     resetPasswordExpires: Date,
+    geminiApiKey: {
+      type: String,
+      default: "",
+      trim: true,
+    },
   },
   { timestamps: true }
 );

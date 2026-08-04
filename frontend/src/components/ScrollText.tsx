@@ -38,32 +38,32 @@ export default function ScrollText() {
     >
       <h1
         style={{
-          fontFamily: "'Inter', 'Helvetica Neue', Arial, sans-serif",
-          fontSize: 'clamp(2.5rem, 6vw, 5rem)',
+          fontFamily: "'Plus Jakarta Sans', 'Inter', -apple-system, sans-serif",
+          fontSize: 'clamp(2.5rem, 6vw, 5.5rem)',
           fontWeight: 800,
-          color: '#1a1a1a',
-          letterSpacing: '-0.03em',
+          color: '#09090b',
+          letterSpacing: '-0.04em',
           margin: 0,
-          position:'absolute',
-          top:'12%',
-          left:'10%'
-
+          position: 'absolute',
+          top: '12%',
+          left: '10%',
+          lineHeight: 1,
         }}
       >
         IMPRESSION
       </h1>
       <p
         style={{
-          fontFamily: "'Inter', 'Helvetica Neue', Arial, sans-serif",
-          fontSize: 'clamp(0.9rem, 2vw, 1.3rem)',
-          fontWeight: 400,
-          color: '#666666',
+          fontFamily: "'Plus Jakarta Sans', 'Inter', -apple-system, sans-serif",
+          fontSize: 'clamp(0.8rem, 1.4vw, 1.1rem)',
+          fontWeight: 600,
+          color: '#71717a',
           marginTop: '1rem',
-          letterSpacing: '0.05em',
+          letterSpacing: '0.15em',
           textTransform: 'uppercase',
-          position:'absolute',
-          top:'28%',
-          left:'10%',
+          position: 'absolute',
+          top: '26%',
+          left: '10%',
         }}
       >
         Scroll to explore
