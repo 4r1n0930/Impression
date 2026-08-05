@@ -69,6 +69,7 @@ io.on("connection", (socket) => {
           role,
           transcript,
           userApiKey: socket.userApiKey || userApiKey,
+          interviewSessions,
         });
 
       }

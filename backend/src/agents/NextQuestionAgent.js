@@ -8,7 +8,7 @@ class NextQuestionAgent {
       const geminiModel = getGeminiModel(userApiKey);
 
       const result = await geminiModel.generateContent({
-        model: "gemini-2.5-flash",
+        model: "gemini-flash-latest",
         location: "global",
         contents: prompt,
       });
