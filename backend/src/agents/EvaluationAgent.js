@@ -7,10 +7,11 @@ class EvaluationAgent {
 
     try {
       const prompt = evaluationPrompt(question, answer);
-      const geminiModel = getGeminiModel(userApiKey);
+      const model = getGeminiModel(userApiKey);
 
-      const result = await geminiModel.generateContent({
-        model: "gemini-2.5-flash",
+      const result = await model.generateContent({
+        model: "gemini-flash-latest",
+        location: "global",
         contents: prompt,
       });
       let response =
@@ -26,18 +27,7 @@ class EvaluationAgent {
     } catch (error) {
       console.error("Evaluation Agent Error:", error);
 
-      return {
-        score: 0,
-        technicalAccuracy: 0,
-        completeness: 0,
-        communication: 0,
-        confidence: 0,
-        strengths: [],
-        weaknesses: [],
-        missingConcepts: [],
-        followUpRequired: false,
-        followUpReason: "Evaluation Failed"
-      };
+      return;
     }
   }
 }

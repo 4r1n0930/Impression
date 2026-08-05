@@ -7,7 +7,7 @@ const router = express.Router();
 
 router.post("/token", async (req, res) => {
   try {
-    const { roomName, name, password, creator } = req.body;
+    const { roomName, name, password, creator} = req.body;
 
     if (!roomName || !name) {
       return res.status(400).json({ message: "roomName and name are required" });

@@ -68,8 +68,8 @@ io.on("connection", (socket) => {
           roomName,
           role,
           transcript,
-          interviewSessions,
           userApiKey: socket.userApiKey || userApiKey,
+          interviewSessions,
         });
 
       }
@@ -99,15 +99,15 @@ io.on("connection", (socket) => {
     // Add user to room
     socket.join(roomName);
 
-    connectDeepgram(roomName, role, userApiKey);
-
-    // Track user
+    // Ensure interview session exists before starting Deepgram to avoid race conditions
     if (!interviewSessions.has(roomName)) {
       interviewSessions.set(roomName, {
         currentQuestion: null,
         evaluations: []
       });
     }
+
+    // Track user
     if (!activeUsers.has(roomName)) {
       activeUsers.set(roomName, []);
     }
@@ -118,6 +118,9 @@ io.on("connection", (socket) => {
     } else {
       roomUsers.push({ socketId: socket.id, userName, email, geminiApiKey: userApiKey });
     }
+
+    // Now connect to Deepgram (after session and user tracking is initialized)
+    connectDeepgram(roomName, role, userApiKey);
 
 
     // Get all users in this room

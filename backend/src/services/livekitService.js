@@ -2,10 +2,6 @@ import { AccessToken, RoomServiceClient } from "livekit-server-sdk";
 
 class LivekitService {
   async generateToken({ identity, name, roomName, role }) {
-    if (!process.env.LIVEKIT_API_KEY || !process.env.LIVEKIT_API_SECRET) {
-      return "";
-    }
-
     const token = new AccessToken(
       process.env.LIVEKIT_API_KEY,
       process.env.LIVEKIT_API_SECRET,

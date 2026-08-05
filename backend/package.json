@@ -12,6 +12,7 @@
   "dependencies": {
     "@deepgram/sdk": "^4.11.3",
     "@google/genai": "^2.10.0",
+    "@livekit/agents-plugin-deepgram": "^1.5.0",
     "axios": "^1.19.0",
     "bcryptjs": "^3.0.3",
     "cloudinary": "^2.10.0",

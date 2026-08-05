@@ -2,9 +2,41 @@ import interviewController from "../controller/InterviewController.js";
 
 class TranscriptService {
 
-  constructor() {
-    this.answerBuffers = new Map();
-    this.answerTimers = new Map();
+  constructor(interviewController) {
+    this.interviewController = interviewController;
+    this.buffers = new Map();
+    this.timers = new Map();
+  }
+  async handleBufferedTranscript({
+    key,
+    transcript,
+    delay,
+    callback,
+  }) {
+    const previous = this.buffers.get(key) || "";
+
+    this.buffers.set(
+      key,
+      `${previous} ${transcript}`.trim()
+    );
+
+    if (this.timers.has(key)) {
+      clearTimeout(this.timers.get(key));
+    }
+
+    const timer = setTimeout(async () => {
+      const finalTranscript =
+        (this.buffers.get(key) || "").trim();
+
+      this.buffers.delete(key);
+      this.timers.delete(key);
+
+      if (finalTranscript.length > 0) {
+        await callback(finalTranscript);
+      }
+    }, delay);
+
+    this.timers.set(key, timer);
   }
 
   async handleTranscript({
@@ -13,73 +45,55 @@ class TranscriptService {
     role,
     transcript,
     interviewSessions,
-    userApiKey,
   }) {
 
-    if (role === "interviewer") {
+    const key = `${roomName}-${role}`;
 
-      const result =
-        await interviewController.processInterviewerSpeech(
-          roomName,
-          transcript
-        );
+    await this.handleBufferedTranscript({
+      key,
+      transcript,
+      delay: role === "interviewer" ? 2500 : 5000,
 
-      if (result.type === "QUESTION") {
+      callback: async (finalTranscript) => {
 
-        interviewSessions.get(roomName).currentQuestion =
-          result.question;
+        if (role === "interviewer") {
 
-        io.to(roomName).emit(
-          "question:detected",
-          result
-        );
-      }
+          const result =
+            await interviewController.processInterviewerSpeech(
+              roomName,
+              finalTranscript
+            );
 
-      return;
-    }
+          if (result.type === "QUESTION") {
 
-    if (role === "interviewee") {
+            interviewSessions.get(roomName).currentQuestion =
+              result.question;
 
-      const previous =
-        this.answerBuffers.get(roomName) || "";
+            io.to(roomName).emit(
+              "question:detected",
+              result
+            );
+          }
 
-      this.answerBuffers.set(
-        roomName,
-        previous + " " + transcript
-      );
+        } else {
 
-      if (this.answerTimers.has(roomName)) {
-        clearTimeout(
-          this.answerTimers.get(roomName)
-        );
-      }
+          const result =
+            await interviewController.processIntervieweeSpeech(
+              roomName,
+              finalTranscript
+            );
 
-      const timer = setTimeout(async () => {
+          console.log(result);
 
-        const finalAnswer =
-          this.answerBuffers.get(roomName).trim();
-
-        const evaluation =
-          await interviewController.processIntervieweeSpeech(
-            roomName,
-            finalAnswer,
-            userApiKey
+          io.to(roomName).emit(
+            "ai-suggested-questions",
+            result.nextQuestions
           );
 
-        console.log(evaluation);
+        }
 
-        io.to(roomName).emit(
-          "answer:evaluated",
-          evaluation
-        );
-
-        this.answerBuffers.delete(roomName);
-        this.answerTimers.delete(roomName);
-
-      }, 5000);
-
-      this.answerTimers.set(roomName, timer);
-    }
+      },
+    });
 
   }
 

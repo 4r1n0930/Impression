@@ -48,11 +48,13 @@ class InterviewController {
         error: "No active question found.",
       };
     }
+
     const evaluation = await evaluationAgent.process(
       question,
       transcript,
       userApiKey
     );
+
     const followUpCount = this.followUpCounts.get(roomName) || 0;
     if (!this.evaluations.has(roomName)) {
       this.evaluations.set(roomName, []);
@@ -63,15 +65,44 @@ class InterviewController {
       answer: transcript,
       evaluation,
     });
+
+    const updatedFollowUpCount = followUpCount + 1;
+    this.followUpCounts.set(roomName, updatedFollowUpCount);
+
     const nextQuestions = await nextQuestionAgent.process(
       question,
       evaluation,
-      followUpCount,
+      updatedFollowUpCount,
       userApiKey
     );
-    console.log(nextQuestions);
 
-    return evaluation;
+    return {
+      evaluation,
+      nextQuestions,
+    };
+  }
+
+  async refreshSuggestions(roomName) {
+    const history = this.evaluations.get(roomName);
+
+    if (!history || history.length === 0) {
+      return await nextQuestionAgent.process(
+        null,
+        null,
+        0
+      );
+    }
+
+    const latest = history[history.length - 1];
+
+    const followUpCount =
+      this.followUpCounts.get(roomName) || 0;
+
+    return await nextQuestionAgent.process(
+      latest.question,
+      latest.evaluation,
+      followUpCount
+    );
   }
 
   // Interview khatam hone par

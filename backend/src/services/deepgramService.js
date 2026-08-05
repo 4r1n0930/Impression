@@ -19,7 +19,6 @@ export function createDeepgramConnection(socket,
 
   let keepAliveInterval;
   connection.on(LiveTranscriptionEvents.Open, () => {
-    console.log(`Deepgram connected -> ${socket.id}`);
 
     keepAliveInterval = setInterval(() => {
       connection.keepAlive();
@@ -47,13 +46,7 @@ export function createDeepgramConnection(socket,
     });
   }
   );
-
-  connection.on(LiveTranscriptionEvents.Error, (err) => {
-    console.error("Deepgram Error:", err);
-  });
-
   connection.on(LiveTranscriptionEvents.Close, () => {
-    console.log(`Deepgram Closed -> ${socket.id}`);
 
     clearInterval(keepAliveInterval);
   });
