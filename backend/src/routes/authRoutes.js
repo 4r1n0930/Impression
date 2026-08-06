@@ -284,16 +284,16 @@ router.post("/forgot-password", async (req, res) => {
           pass: process.env.SMTP_PASS,
         },
       });
-      try{
+      try {
         await transporter.sendMail({
-        to: user.email,
-        subject: "Password Reset Request",
-        text: `You are receiving this because you (or someone else) have requested the reset of the password for your account.\n\n Please click on the following link, or paste this into your browser to complete the process:\n\n ${resetUrl} \n\n If you did not request this, please ignore this email and your password will remain unchanged.\n`,
-      });
-      }catch(error){
+          to: user.email,
+          subject: "Password Reset Request",
+          text: `You are receiving this because you (or someone else) have requested the reset of the password for your account.\n\n Please click on the following link, or paste this into your browser to complete the process:\n\n ${resetUrl} \n\n If you did not request this, please ignore this email and your password will remain unchanged.\n`,
+        });
+      } catch (error) {
         console.error("Error sending email:", error);
       }
-      
+
     }
 
     res.json({ message: "Reset link sent to email " });
@@ -335,14 +335,14 @@ router.post("/send-reset-link", protect, async (req, res) => {
           pass: process.env.SMTP_PASS,
         },
       });
-      try{
+      try {
         await transporter.sendMail({
-        to: user.email,
-        subject: "Password Reset Request",
-        text: `You requested a password reset.\n\nClick the link below:\n\n${resetUrl}`,
-      });
-      console.log("Email sent successfully");
-      }catch(error){
+          to: user.email,
+          subject: "Password Reset Request",
+          text: `You requested a password reset.\n\nClick the link below:\n\n${resetUrl}`,
+        });
+        console.log("Email sent successfully");
+      } catch (error) {
         console.error("Error sending email:", error);
       }
     }
@@ -462,18 +462,41 @@ router.put("/update-name", protect, async (req, res) => {
 // @route   PUT /auth/update-api-key
 router.put("/update-api-key", protect, async (req, res) => {
   try {
-    const { geminiApiKey } = req.body;
+    const {
+      geminiApiKey,
+      livekitUrl,
+      livekitApiKey,
+      livekitApiSecret,
+    } = req.body;
+
     const encryptedKey = geminiApiKey ? encrypt(geminiApiKey) : "";
+
+    const encryptedLivekitApiKey = livekitApiKey
+      ? encrypt(livekitApiKey)
+      : "";
+
+    const encryptedLivekitApiSecret = livekitApiSecret
+      ? encrypt(livekitApiSecret)
+      : "";
 
     const user = await User.findByIdAndUpdate(
       req.user.userId,
-      { geminiApiKey: encryptedKey },
+      {
+        geminiApiKey: encryptedGeminiKey,
+        livekitUrl: livekitUrl || "",
+        livekitApiKey: encryptedLivekitApiKey,
+        livekitApiSecret: encryptedLivekitApiSecret,
+      },
       { new: true }
     );
 
     res.json({
-      message: "Gemini API Key updated & encrypted successfully",
+      message: "API credentials updated successfully",
       hasGeminiApiKey: Boolean(user.geminiApiKey),
+      hasLivekitCredentials:
+        Boolean(user.livekitUrl) &&
+        Boolean(user.livekitApiKey) &&
+        Boolean(user.livekitApiSecret),
     });
   } catch (error) {
     console.error("Update API key error:", error);
@@ -491,14 +514,22 @@ router.get("/profile", protect, async (req, res) => {
     }
 
     const decryptedKey = decrypt(user.geminiApiKey);
+    const decryptedLivekitApiKey = decrypt(user.livekitApiKey);
+    const decryptedLivekitApiSecret = decrypt(user.livekitApiSecret);
 
     res.json({
       _id: user._id,
       name: user.name,
       email: user.email,
       profilePhoto: user.profilePhoto,
+
       geminiApiKey: decryptedKey || "",
-      hasGeminiApiKey: Boolean(user.geminiApiKey),
+      hasGeminiApiKey: Boolean(user.geminiApiKey),                        
+
+      hasLivekitCredentials:
+        Boolean(user.livekitUrl) &&
+        Boolean(user.livekitApiKey) &&
+        Boolean(user.livekitApiSecret),
     });
   } catch (error) {
     res.status(500).json({ message: error.message });

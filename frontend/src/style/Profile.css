@@ -184,3 +184,21 @@
   color: #ffffff;
   border-color: rgba(255, 255, 255, 0.3);
 }
+.form-divider {
+  margin: 28px 0 20px;
+  border: none;
+  border-top: 1px solid #2d3748;
+}
+
+.section-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #fff;
+  margin-bottom: 6px;
+}
+
+.section-description {
+  font-size: 14px;
+  color: #9ca3af;
+  margin-bottom: 20px;
+}

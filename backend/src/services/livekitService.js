@@ -1,10 +1,17 @@
 import { AccessToken, RoomServiceClient } from "livekit-server-sdk";
 
 class LivekitService {
-  async generateToken({ identity, name, roomName, role }) {
+  async generateToken({
+    identity,
+    name,
+    roomName,
+    role,
+    livekitApiKey,
+    livekitApiSecret,
+  }) {
     const token = new AccessToken(
-      process.env.LIVEKIT_API_KEY,
-      process.env.LIVEKIT_API_SECRET,
+      livekitApiKey || process.env.LIVEKIT_API_KEY,
+      livekitApiSecret || process.env.LIVEKIT_API_SECRET,
       { identity, name }
     );
 
@@ -23,17 +30,25 @@ class LivekitService {
     return await token.toJwt();
   }
 
-  async getInterviewerCount(roomName) {
+  async getInterviewerCount({
+    roomName,
+    livekitUrl,
+    livekitApiKey,
+    livekitApiSecret,
+  }) {
     try {
-      if (!process.env.LIVEKIT_API_KEY || !process.env.LIVEKIT_API_SECRET) {
+      if (!livekitApiKey || !livekitApiSecret) {
         return 0;
       }
-      const rawUrl = process.env.LIVEKIT_URL || "http://localhost:7800";
+
+      const rawUrl = livekitUrl || process.env.LIVEKIT_URL || "http://localhost:7800";
+
       const httpUrl = rawUrl.replace(/^wss:/, "https:").replace(/^ws:/, "http:");
+
       const roomService = new RoomServiceClient(
         httpUrl,
-        process.env.LIVEKIT_API_KEY,
-        process.env.LIVEKIT_API_SECRET
+        livekitApiKey,
+        livekitApiSecret
       );
 
       const participants = await roomService.listParticipants(roomName);
