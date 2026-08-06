@@ -64,7 +64,7 @@ const IntervieweeLayout = ({ roomName, name }: { roomName: string; name: string 
 
         await capture.start(stream, (pcm) => {
           if (!isMicrophoneEnabled) return;
-          
+
           socket.emit("pcm-data", {
             roomName,
             role: "interviewee",
@@ -272,12 +272,22 @@ const Interviewee = () => {
     setError("");
 
     try {
-      const res = await axios.post(`${BACKEND_URL}/api/token`, {
-        roomName,
-        name: uName,
-        password: pass,
-        creator: true,
-      });
+      const jwtToken = localStorage.getItem("token");
+
+      const res = await axios.post(
+        `${BACKEND_URL}/api/token`,
+        {
+          roomName,
+          name,
+          password,
+          creator: false,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${jwtToken}`,
+          },
+        }
+      );
 
       socket.emit("joinMeeting", {
         roomName,

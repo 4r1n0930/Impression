@@ -57,7 +57,7 @@ const InterviewerLayout = ({ roomName, name }: { roomName: string; name: string 
   const { localParticipant, isMicrophoneEnabled, isCameraEnabled, isScreenShareEnabled } = useLocalParticipant();
   const captureRef = useRef<AudioCapture | null>(null);
   const room = useRoomContext();
-  
+
   const cameraTracks = useTracks([{ source: Track.Source.Camera, withPlaceholder: true }]);
   const screenShareTracks = useTracks([{ source: Track.Source.ScreenShare, withPlaceholder: false }]);
 
@@ -415,13 +415,22 @@ const InterviewRoom = () => {
     setError(null);
 
     try {
-      const res = await axios.post(`${BACKEND_URL}/api/token`, {
-        roomName,
-        name: userName,
-        password,
-        creator: false,
-      });
+      const jwtToken = localStorage.getItem("token");
 
+      const res = await axios.post(
+        `${BACKEND_URL}/api/token`,
+        {
+          roomName,
+          name: userName,
+          password,
+          creator: false,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${jwtToken}`,
+          },
+        }
+      );
       socket.emit("joinMeeting", {
         roomName,
         userName: userName,
