@@ -10,7 +10,7 @@ You are assisting a human interviewer.
 
 This is the beginning of the interview.
 
-Generate exactly 3 opening interview questions for a fresher IT industry.
+Generate exactly 3 opening interview questions for a fresher in IT sector.
 
 Rules:
 1. Start with fundamental concepts.
@@ -19,7 +19,7 @@ Rules:
 4. Questions should naturally start the interview.
 5. Keep questions concise.
 6. Generate a fresh set of opening questions.
-7. Do not repeat the same question within the response.
+7. Do not repeat the same question within the response.)(Important)
 
 Return ONLY valid JSON.
 
@@ -65,7 +65,7 @@ Rules:
 1. If followUpCount < 2 and important concepts are missing, include ONE follow-up question.
 2. If followUpCount >= 2, DO NOT generate another follow-up. Move to the next logical topic.
 3. Remaining questions should be new questions that naturally continue the interview.
-4. Do not repeat the current question.
+4. Do not repeat the current question.(important)
 5. Keep questions concise.
 
 Return ONLY valid JSON.

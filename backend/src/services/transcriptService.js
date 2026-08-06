@@ -44,6 +44,7 @@ class TranscriptService {
     roomName,
     role,
     transcript,
+    userApiKey,
     interviewSessions,
   }) {
 
@@ -80,15 +81,18 @@ class TranscriptService {
           const result =
             await interviewController.processIntervieweeSpeech(
               roomName,
-              finalTranscript
+              finalTranscript,
+              userApiKey
             );
 
-          console.log(result);
+          console.log("Interviewee Answer Evaluated & Suggestions:", result);
 
-          io.to(roomName).emit(
-            "ai-suggested-questions",
-            result.nextQuestions
-          );
+          if (result && result.nextQuestions) {
+            io.to(roomName).emit(
+              "ai-suggested-questions",
+              result.nextQuestions
+            );
+          }
 
         }
 

@@ -1,5 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate, useSearchParams, useParams } from "react-router-dom";
+import axios from "axios";
+import { BACKEND_URL } from "../config";
 import { 
   Award, 
   CheckCircle2, 
@@ -15,7 +17,8 @@ import {
   Brain,
   ShieldCheck,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  RefreshCw
 } from "lucide-react";
 import "../style/Feedback.css";
 
@@ -33,7 +36,26 @@ interface QuestionFeedback {
   missingConcepts: string[];
 }
 
-const DUMMY_FEEDBACK_DATA = {
+interface OverallMetrics {
+  technicalAccuracy: number;
+  completeness: number;
+  communicationClarity: number;
+  confidence: number;
+}
+
+interface FeedbackReportData {
+  roomName: string;
+  candidateName?: string;
+  interviewDate: string;
+  durationMinutes: number;
+  overallScore: number;
+  verdict: string;
+  metrics: OverallMetrics;
+  summary: string;
+  questions: QuestionFeedback[];
+}
+
+const DUMMY_FEEDBACK_DATA: FeedbackReportData = {
   roomName: "Java-Backend-Senior-Role",
   candidateName: "Candidate",
   interviewDate: new Date().toLocaleDateString("en-US", {
@@ -107,7 +129,7 @@ const DUMMY_FEEDBACK_DATA = {
       ],
       missingConcepts: ["Mark-Sweep-Compact Phase Lifecycle"]
     }
-  ] as QuestionFeedback[]
+  ]
 };
 
 const Feedback: React.FC = () => {
@@ -116,7 +138,44 @@ const Feedback: React.FC = () => {
   const { roomName: paramRoomName } = useParams();
 
   const roomName = paramRoomName || searchParams.get("roomName") || DUMMY_FEEDBACK_DATA.roomName;
+  const [reportData, setReportData] = useState<FeedbackReportData | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
   const [expandedQuestion, setExpandedQuestion] = useState<number | null>(1);
+
+  useEffect(() => {
+    let isMounted = true;
+    setLoading(true);
+
+    axios
+      .get(`${BACKEND_URL}/interview/feedback/${encodeURIComponent(roomName)}`)
+      .then((res) => {
+        if (!isMounted) return;
+        if (res.data && res.data.success && res.data.questions && res.data.questions.length > 0) {
+          setReportData(res.data);
+        } else {
+          // If no live in-memory questions exist yet for this room name, use sample report data
+          setReportData({
+            ...DUMMY_FEEDBACK_DATA,
+            roomName: roomName || DUMMY_FEEDBACK_DATA.roomName,
+          });
+        }
+      })
+      .catch((err) => {
+        console.error("Error loading interview feedback report:", err);
+        if (!isMounted) return;
+        setReportData({
+          ...DUMMY_FEEDBACK_DATA,
+          roomName: roomName || DUMMY_FEEDBACK_DATA.roomName,
+        });
+      })
+      .finally(() => {
+        if (isMounted) setLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [roomName]);
 
   const toggleQuestion = (id: number) => {
     setExpandedQuestion(expandedQuestion === id ? null : id);
@@ -125,6 +184,18 @@ const Feedback: React.FC = () => {
   const handleDownload = () => {
     alert("Downloading PDF Feedback Report...");
   };
+
+  if (loading || !reportData) {
+    return (
+      <div className="feedback-container" style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ textAlign: "center", color: "#ffffff" }}>
+          <RefreshCw size={36} className="animate-spin" style={{ color: "#60a5fa", margin: "0 auto 16px" }} />
+          <h2>Generating Interview Performance Report...</h2>
+          <p style={{ color: "#94a3b8", fontSize: "14px" }}>Analyzing live question evaluations and overall candidate metrics</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="feedback-container">
@@ -137,7 +208,7 @@ const Feedback: React.FC = () => {
           </button>
           <div className="title-section">
             <h1>Interview Performance Report</h1>
-            <span className="room-badge">{roomName}</span>
+            <span className="room-badge">{reportData.roomName}</span>
           </div>
         </div>
         <div className="header-actions">
@@ -157,16 +228,16 @@ const Feedback: React.FC = () => {
         <div className="hero-score-card">
           <div className="score-badge-group">
             <div className="score-ring">
-              <span className="score-number">{DUMMY_FEEDBACK_DATA.overallScore}</span>
+              <span className="score-number">{reportData.overallScore}</span>
               <span className="score-max">/10</span>
             </div>
             <div className="verdict-container">
               <div className="verdict-tag">
                 <ShieldCheck size={18} />
-                <span>{DUMMY_FEEDBACK_DATA.verdict}</span>
+                <span>{reportData.verdict}</span>
               </div>
               <h2>Overall AI Assessment</h2>
-              <p className="summary-text">{DUMMY_FEEDBACK_DATA.summary}</p>
+              <p className="summary-text">{reportData.summary}</p>
             </div>
           </div>
 
@@ -175,21 +246,21 @@ const Feedback: React.FC = () => {
               <Clock size={18} className="stat-icon" />
               <div>
                 <span className="stat-label">Duration</span>
-                <span className="stat-value">{DUMMY_FEEDBACK_DATA.durationMinutes} mins</span>
+                <span className="stat-value">{reportData.durationMinutes} mins</span>
               </div>
             </div>
             <div className="stat-box">
               <MessageSquare size={18} className="stat-icon" />
               <div>
                 <span className="stat-label">Questions</span>
-                <span className="stat-value">{DUMMY_FEEDBACK_DATA.questions.length} Answered</span>
+                <span className="stat-value">{reportData.questions.length} Answered</span>
               </div>
             </div>
             <div className="stat-box">
               <Award size={18} className="stat-icon" />
               <div>
                 <span className="stat-label">Date</span>
-                <span className="stat-value">{DUMMY_FEEDBACK_DATA.interviewDate}</span>
+                <span className="stat-value">{reportData.interviewDate}</span>
               </div>
             </div>
           </div>
@@ -204,12 +275,12 @@ const Feedback: React.FC = () => {
             <div className="metric-card">
               <div className="metric-header">
                 <span>Technical Accuracy</span>
-                <span className="metric-score">{DUMMY_FEEDBACK_DATA.metrics.technicalAccuracy}/10</span>
+                <span className="metric-score">{reportData.metrics.technicalAccuracy}/10</span>
               </div>
               <div className="progress-bar-bg">
                 <div 
                   className="progress-bar-fill green" 
-                  style={{ width: `${DUMMY_FEEDBACK_DATA.metrics.technicalAccuracy * 10}%` }}
+                  style={{ width: `${Math.min(100, reportData.metrics.technicalAccuracy * 10)}%` }}
                 />
               </div>
             </div>
@@ -217,12 +288,12 @@ const Feedback: React.FC = () => {
             <div className="metric-card">
               <div className="metric-header">
                 <span>Completeness</span>
-                <span className="metric-score">{DUMMY_FEEDBACK_DATA.metrics.completeness}/10</span>
+                <span className="metric-score">{reportData.metrics.completeness}/10</span>
               </div>
               <div className="progress-bar-bg">
                 <div 
                   className="progress-bar-fill purple" 
-                  style={{ width: `${DUMMY_FEEDBACK_DATA.metrics.completeness * 10}%` }}
+                  style={{ width: `${Math.min(100, reportData.metrics.completeness * 10)}%` }}
                 />
               </div>
             </div>
@@ -230,12 +301,12 @@ const Feedback: React.FC = () => {
             <div className="metric-card">
               <div className="metric-header">
                 <span>Communication Clarity</span>
-                <span className="metric-score">{DUMMY_FEEDBACK_DATA.metrics.communicationClarity}/10</span>
+                <span className="metric-score">{reportData.metrics.communicationClarity}/10</span>
               </div>
               <div className="progress-bar-bg">
                 <div 
                   className="progress-bar-fill blue" 
-                  style={{ width: `${DUMMY_FEEDBACK_DATA.metrics.communicationClarity * 10}%` }}
+                  style={{ width: `${Math.min(100, reportData.metrics.communicationClarity * 10)}%` }}
                 />
               </div>
             </div>
@@ -243,12 +314,12 @@ const Feedback: React.FC = () => {
             <div className="metric-card">
               <div className="metric-header">
                 <span>Confidence</span>
-                <span className="metric-score">{DUMMY_FEEDBACK_DATA.metrics.confidence}/10</span>
+                <span className="metric-score">{reportData.metrics.confidence}/10</span>
               </div>
               <div className="progress-bar-bg">
                 <div 
                   className="progress-bar-fill emerald" 
-                  style={{ width: `${DUMMY_FEEDBACK_DATA.metrics.confidence * 10}%` }}
+                  style={{ width: `${Math.min(100, reportData.metrics.confidence * 10)}%` }}
                 />
               </div>
             </div>
@@ -262,7 +333,7 @@ const Feedback: React.FC = () => {
           </h3>
 
           <div className="qa-list">
-            {DUMMY_FEEDBACK_DATA.questions.map((q) => {
+            {reportData.questions.map((q) => {
               const isExpanded = expandedQuestion === q.id;
               return (
                 <div key={q.id} className={`qa-card ${isExpanded ? "expanded" : ""}`}>

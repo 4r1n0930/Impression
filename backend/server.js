@@ -134,6 +134,16 @@ io.on("connection", (socket) => {
       users: usersInRoom,
     });
 
+    // Send initial AI suggested questions for interviewer joining room
+    if (role === "interviewer" || role === "INTERVIEWER") {
+      try {
+        const initialSuggestions = await interviewController.refreshSuggestions(roomName, userApiKey);
+        socket.emit("ai-suggested-questions", initialSuggestions);
+      } catch (err) {
+        console.error("Error generating initial AI suggestions on join:", err);
+      }
+    }
+
   });
   socket.on("interviewer:transcript", async ({ roomName, transcript }) => {
     const result =
@@ -177,12 +187,16 @@ io.on("connection", (socket) => {
       Buffer.from(new Int16Array(data.pcm).buffer)
     );
   });
-  socket.on("refresh-suggestions", ({ roomName }) => {
-    socket.emit("ai-suggested-questions", [
-      "Explain TreeMap.",
-      "What is LinkedHashMap?",
-      "How does HashMap handle collisions?"
-    ]);
+  socket.on("refresh-suggestions", async ({ roomName }) => {
+    try {
+      const suggestions = await interviewController.refreshSuggestions(
+        roomName,
+        socket.userApiKey
+      );
+      io.to(roomName).emit("ai-suggested-questions", suggestions);
+    } catch (err) {
+      console.error("Error refreshing AI suggestions:", err);
+    }
   });
   // When user leaves meeting
   socket.on("leaveMeeting", (data) => {
