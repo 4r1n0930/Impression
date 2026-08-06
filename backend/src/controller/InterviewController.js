@@ -82,14 +82,15 @@ class InterviewController {
     };
   }
 
-  async refreshSuggestions(roomName) {
+  async refreshSuggestions(roomName, userApiKey) {
     const history = this.evaluations.get(roomName);
 
     if (!history || history.length === 0) {
       return await nextQuestionAgent.process(
         null,
         null,
-        0
+        0,
+        userApiKey
       );
     }
 
@@ -101,7 +102,8 @@ class InterviewController {
     return await nextQuestionAgent.process(
       latest.question,
       latest.evaluation,
-      followUpCount
+      followUpCount,
+      userApiKey
     );
   }
 

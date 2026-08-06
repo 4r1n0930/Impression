@@ -15,9 +15,41 @@ import { BACKEND_URL } from "../config";
 import "../style/InterviewRoom.css";
 import { io, Socket } from "socket.io-client";
 import AudioCapture from "../../public/audio/AudioCapture";
-import { Mic, MicOff, Video, VideoOff, Monitor, MessageSquare, PhoneOff, Users, Copy, Sparkles, RefreshCw } from "lucide-react";
+import { Mic, MicOff, Video, VideoOff, Monitor, MessageSquare, PhoneOff, Users, Copy, Sparkles, RefreshCw, Check } from "lucide-react";
 
 const socket: Socket = io(BACKEND_URL);
+
+interface SuggestedQuestionItem {
+  type?: string;
+  question: string;
+}
+
+const parseSuggestedQuestions = (data: any): SuggestedQuestionItem[] => {
+  if (!data) return [];
+  if (data.questions && Array.isArray(data.questions)) {
+    return data.questions.map((q: any) => {
+      if (typeof q === "string") return { question: q };
+      return {
+        type: q.type || q.action || "NEXT",
+        question: q.question || q.suggestedQuestion || String(q)
+      };
+    });
+  }
+  if (Array.isArray(data)) {
+    return data.map((q: any) => {
+      if (typeof q === "string") return { question: q };
+      return {
+        type: q.type || q.action || "NEXT",
+        question: q.question || q.suggestedQuestion || String(q)
+      };
+    });
+  }
+  if (typeof data === "object") {
+    if (data.question) return [{ type: data.type || "NEXT", question: data.question }];
+    if (data.suggestedQuestion) return [{ type: data.action || "NEXT", question: data.suggestedQuestion }];
+  }
+  return [];
+};
 
 const InterviewerLayout = ({ roomName, name }: { roomName: string; name: string }) => {
   const navigate = useNavigate();
@@ -29,11 +61,9 @@ const InterviewerLayout = ({ roomName, name }: { roomName: string; name: string 
   const cameraTracks = useTracks([{ source: Track.Source.Camera, withPlaceholder: true }]);
   const screenShareTracks = useTracks([{ source: Track.Source.ScreenShare, withPlaceholder: false }]);
 
-  const [suggestedQuestions, setSuggestedQuestions] = useState([
-    "What is HashMap?",
-    "Explain ConcurrentHashMap.",
-    "Difference between HashMap and Hashtable."
-  ]);
+  const [suggestedQuestions, setSuggestedQuestions] = useState<SuggestedQuestionItem[]>([]);
+  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState<boolean>(false);
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
 
   useEffect(() => {
     const startPCM = async () => {
@@ -90,14 +120,24 @@ const InterviewerLayout = ({ roomName, name }: { roomName: string; name: string 
   }, [localParticipant, isMicrophoneEnabled, roomName, name]);
 
   useEffect(() => {
-    socket.on("ai-suggested-questions", (questions) => {
-      setSuggestedQuestions(questions);
+    socket.on("ai-suggested-questions", (data) => {
+      const parsed = parseSuggestedQuestions(data);
+      if (parsed.length > 0) {
+        setSuggestedQuestions(parsed);
+      }
+      setIsLoadingSuggestions(false);
     });
 
     return () => {
       socket.off("ai-suggested-questions");
     };
   }, []);
+
+  const handleCopyQuestion = (text: string, index: number) => {
+    navigator.clipboard.writeText(text);
+    setCopiedIndex(index);
+    setTimeout(() => setCopiedIndex(null), 2000);
+  };
 
   const isInterviewee = (participant: any) => {
     if (!participant) return false;
@@ -231,24 +271,77 @@ const InterviewerLayout = ({ roomName, name }: { roomName: string; name: string 
           </div>
 
           <div className="ai-panel">
-            <h3 style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
-              <Sparkles size={18} color="#60a5fa" /> AI Suggested Questions
-            </h3>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <h3 style={{ display: "flex", alignItems: "center", gap: "8px", margin: 0, fontSize: "16px" }}>
+                <Sparkles size={18} color="#60a5fa" /> AI Suggested Questions
+              </h3>
+              {isLoadingSuggestions && (
+                <RefreshCw size={14} className="animate-spin" style={{ color: "#60a5fa" }} />
+              )}
+            </div>
 
-            {suggestedQuestions.map((question, index) => (
-              <div key={index} className="question-card">
-                {index + 1}. {question}
-              </div>
-            ))}
+            <div className="questions-container" style={{ display: "flex", flexDirection: "column", gap: "12px", flex: 1, overflowY: "auto" }}>
+              {suggestedQuestions.length === 0 ? (
+                <div style={{ textAlign: "center", color: "#9ca3af", padding: "24px 12px", fontSize: "13px", lineHeight: "1.5" }}>
+                  {isLoadingSuggestions ? "Generating intelligent question suggestions..." : "No suggestions available yet. Click refresh below or wait for interviewee responses."}
+                </div>
+              ) : (
+                suggestedQuestions.map((item, index) => (
+                  <div
+                    key={index}
+                    className="question-card"
+                    onClick={() => handleCopyQuestion(item.question, index)}
+                    title="Click to copy question to clipboard"
+                  >
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "6px" }}>
+                      <span style={{ fontSize: "11px", fontWeight: 700, color: "#60a5fa", letterSpacing: "0.5px" }}>
+                        QUESTION {index + 1}
+                      </span>
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                        {item.type && (
+                          <span
+                            style={{
+                              fontSize: "10px",
+                              padding: "2px 6px",
+                              borderRadius: "10px",
+                              fontWeight: 700,
+                              textTransform: "uppercase",
+                              backgroundColor: item.type.includes("FOLLOW") ? "rgba(234, 179, 8, 0.2)" : "rgba(59, 130, 246, 0.2)",
+                              color: item.type.includes("FOLLOW") ? "#fde047" : "#93c5fd",
+                              border: item.type.includes("FOLLOW") ? "1px solid rgba(234, 179, 8, 0.4)" : "1px solid rgba(59, 130, 246, 0.4)"
+                            }}
+                          >
+                            {item.type.replace("_", " ")}
+                          </span>
+                        )}
+                        {copiedIndex === index ? (
+                          <span style={{ fontSize: "11px", color: "#4ade80", display: "flex", alignItems: "center", gap: "2px" }}>
+                            <Check size={12} /> Copied
+                          </span>
+                        ) : (
+                          <Copy size={12} style={{ color: "#9ca3af", opacity: 0.6 }} />
+                        )}
+                      </div>
+                    </div>
+                    <p style={{ margin: 0, fontSize: "13px", lineHeight: "1.45", color: "#f3f4f6", fontWeight: 400 }}>
+                      {item.question}
+                    </p>
+                  </div>
+                ))
+              )}
+            </div>
 
             <button
               className="refresh-btn"
-              style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}
+              disabled={isLoadingSuggestions}
+              style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", opacity: isLoadingSuggestions ? 0.7 : 1 }}
               onClick={() => {
+                setIsLoadingSuggestions(true);
                 socket.emit("refresh-suggestions", { roomName });
               }}
             >
-              <RefreshCw size={16} /> Refresh Suggestions
+              <RefreshCw size={16} className={isLoadingSuggestions ? "animate-spin" : ""} />
+              {isLoadingSuggestions ? "Generating..." : "Refresh Suggestions"}
             </button>
           </div>
         </div>

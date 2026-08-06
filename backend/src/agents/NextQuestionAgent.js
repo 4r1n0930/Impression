@@ -8,17 +8,21 @@ class NextQuestionAgent {
       const geminiModel = getGeminiModel(userApiKey);
 
       const result = await geminiModel.generateContent({
-        model: "gemini-flash-latest",
-        location: "global",
+        model: "gemini-2.5-flash",
         contents: prompt,
       });
 
-      let response = result.candidates[0].content.parts[0].text.trim();
+      let response = result.text || result.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
 
       if (response.startsWith("```json")) {
         response = response
-          .replace(/```json/g, "")
-          .replace(/```/g, "")
+          .replace(/^```json\s*/, "")
+          .replace(/```\s*$/, "")
+          .trim();
+      } else if (response.startsWith("```")) {
+        response = response
+          .replace(/^```\s*/, "")
+          .replace(/```\s*$/, "")
           .trim();
       }
 
@@ -28,9 +32,11 @@ class NextQuestionAgent {
       console.error("Next Question Agent Error:", error);
 
       return {
-        action: "NEXT",
-        reason: "Unable to analyze.",
-        suggestedQuestion: ""
+        questions: [
+          { type: "NEXT", question: "Can you describe a challenging technical problem you solved recently?" },
+          { type: "NEXT", question: "What are the key principles of clean code and software design you follow?" },
+          { type: "NEXT", question: "How do you handle performance bottlenecks in your applications?" }
+        ]
       };
     }
   }

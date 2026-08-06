@@ -10,16 +10,16 @@ class EvaluationAgent {
       const model = getGeminiModel(userApiKey);
 
       const result = await model.generateContent({
-        model: "gemini-flash-latest",
-        location: "global",
+        model: "gemini-2.5-flash",
         contents: prompt,
       });
-      let response =
-        result.candidates[0].content.parts[0].text.trim();
 
-      // Remove markdown if Gemini returns ```json ... ```
+      let response = result.text || result.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
+
       if (response.startsWith("```json")) {
-        response = response.replace(/```json/g, "").replace(/```/g, "").trim();
+        response = response.replace(/^```json\s*/, "").replace(/```\s*$/, "").trim();
+      } else if (response.startsWith("```")) {
+        response = response.replace(/^```\s*/, "").replace(/```\s*$/, "").trim();
       }
 
       return JSON.parse(response);
