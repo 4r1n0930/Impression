@@ -14,8 +14,8 @@ const userSchema = new mongoose.Schema(
       trim: true,
     },
     profilePhoto: {
-    type: String,
-    default: "",
+      type: String,
+      default: "",
     },
     email: {
       type: String,
@@ -42,6 +42,24 @@ const userSchema = new mongoose.Schema(
       default: "",
       trim: true,
     },
+    
+    livekitUrl: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    livekitApiKey: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    livekitApiSecret: {
+      type: String,
+      default: "",
+      trim: true,
+    },
   },
   { timestamps: true }
 );
@@ -49,7 +67,7 @@ const userSchema = new mongoose.Schema(
 // Hash password before saving
 userSchema.pre("save", async function () {
   if (!this.isModified("password")) return;
-  
+
   const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);
 });

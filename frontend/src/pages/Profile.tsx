@@ -15,6 +15,13 @@ const Profile = () => {
   const [saving, setSaving] = useState(false);
   const [showKey, setShowKey] = useState(false);
   const [message, setMessage] = useState("");
+  const [livekitUrl, setLivekitUrl] = useState("");
+  const [livekitApiKey, setLivekitApiKey] = useState("");
+  const [livekitApiSecret, setLivekitApiSecret] = useState("");
+  const [hasLivekitCredentials, setHasLivekitCredentials] = useState(false);
+
+  const [showLivekitKey, setShowLivekitKey] = useState(false);
+  const [showLivekitSecret, setShowLivekitSecret] = useState(false);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -30,6 +37,7 @@ const Profile = () => {
         setEmail(res.data.email || "");
         setGeminiApiKey(res.data.geminiApiKey || "");
         setHasApiKey(Boolean(res.data.hasGeminiApiKey));
+        setHasLivekitCredentials(res.data.hasLivekitCredentials);
       } catch (err) {
         console.error("Failed to fetch profile", err);
       } finally {
@@ -45,6 +53,19 @@ const Profile = () => {
     setMessage("");
     try {
       const token = localStorage.getItem("token");
+      const livekitFields = [
+        livekitUrl.trim(),
+        livekitApiKey.trim(),
+        livekitApiSecret.trim(),
+      ];
+
+      const filledCount = livekitFields.filter(Boolean).length;
+
+      if (filledCount !== 0 && filledCount !== 3) {
+        setSaving(false);
+        setMessage("Please fill all LiveKit credentials or leave all of them empty.");
+        return;
+      }
 
       if (name.trim()) {
         await axios.put(
@@ -56,8 +77,17 @@ const Profile = () => {
 
       await axios.put(
         `${BACKEND_URL}/auth/update-api-key`,
-        { geminiApiKey },
-        { headers: { Authorization: `Bearer ${token}` } }
+        {
+          geminiApiKey,
+          livekitUrl,
+          livekitApiKey,
+          livekitApiSecret,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
       );
 
       if (photo) {
@@ -71,6 +101,15 @@ const Profile = () => {
       }
 
       setHasApiKey(Boolean(geminiApiKey.trim()));
+      setHasApiKey(Boolean(geminiApiKey.trim()));
+
+      setHasLivekitCredentials(
+        Boolean(livekitUrl.trim()) &&
+        Boolean(livekitApiKey.trim()) &&
+        Boolean(livekitApiSecret.trim())
+      );
+
+      setMessage("Profile & API Key updated successfully!");
       setMessage("Profile & API Key updated successfully!");
     } catch (err: any) {
       console.error(err);
@@ -130,6 +169,16 @@ const Profile = () => {
           />
         </div>
 
+        <hr className="form-divider" />
+
+        <h3 className="section-title">
+          AI Credentials
+        </h3>
+
+        <p className="section-description">
+          Add your personal API credentials. If left empty, the application will use the system default credentials.
+        </p>
+
         <div className="form-group">
           <div className="label-with-status">
             <label>Personal Gemini API Key</label>
@@ -156,6 +205,79 @@ const Profile = () => {
           <small className="field-hint">
             Get your key from Google AI Studio. Leaving empty will use system default.
           </small>
+        </div>
+
+
+
+        <div className="form-group">
+          <div className="label-with-status">
+            <label>Personal LiveKit Credentials</label>
+
+            <span
+              className={`status-badge ${hasLivekitCredentials ? "configured" : "default"
+                }`}
+            >
+              {hasLivekitCredentials
+                ? "Personal Credentials Active"
+                : "Using System Default"}
+            </span>
+          </div>
+
+          <input
+            type="text"
+            placeholder="wss://your-project.livekit.cloud"
+            value={livekitUrl}
+            onChange={(e) => setLivekitUrl(e.target.value)}
+            className="form-input"
+          />
+
+          <small className="field-hint">
+            Enter your LiveKit Cloud WebSocket URL.
+          </small>
+        </div>
+
+        <div className="form-group">
+          <label>Personal LiveKit API Key</label>
+
+          <div className="api-key-input-wrapper">
+            <input
+              type={showLivekitKey ? "text" : "password"}
+              placeholder="Enter your LiveKit API Key"
+              value={livekitApiKey}
+              onChange={(e) => setLivekitApiKey(e.target.value)}
+              className="form-input"
+            />
+
+            <button
+              type="button"
+              className="toggle-key-btn"
+              onClick={() => setShowLivekitKey(!showLivekitKey)}
+            >
+              {showLivekitKey ? "Hide" : "Show"}
+            </button>
+          </div>
+        </div>
+
+        <div className="form-group">
+          <label>Personal LiveKit API Secret</label>
+
+          <div className="api-key-input-wrapper">
+            <input
+              type={showLivekitSecret ? "text" : "password"}
+              placeholder="Enter your LiveKit API Secret"
+              value={livekitApiSecret}
+              onChange={(e) => setLivekitApiSecret(e.target.value)}
+              className="form-input"
+            />
+
+            <button
+              type="button"
+              className="toggle-key-btn"
+              onClick={() => setShowLivekitSecret(!showLivekitSecret)}
+            >
+              {showLivekitSecret ? "Hide" : "Show"}
+            </button>
+          </div>
         </div>
 
         <div className="form-group">

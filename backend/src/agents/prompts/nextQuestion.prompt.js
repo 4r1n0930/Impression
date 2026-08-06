@@ -10,7 +10,7 @@ You are assisting a human interviewer.
 
 This is the beginning of the interview.
 
-Generate exactly 3 opening interview questions for a java developer.
+Generate exactly 3 opening interview questions for a fresher IT industry.
 
 Rules:
 1. Start with fundamental concepts.
