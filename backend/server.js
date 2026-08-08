@@ -147,10 +147,12 @@ io.on("connection", (socket) => {
   });
   socket.on("interviewer:transcript", async ({ roomName, transcript }) => {
     const result =
-      await interviewController.processInterviewerSpeech(transcript);
+      await interviewController.processInterviewerSpeech(roomName, transcript);
 
     if (result.type === "QUESTION") {
-
+      if (!interviewSessions.has(roomName)) {
+        interviewSessions.set(roomName, { currentQuestion: null, evaluations: [] });
+      }
       interviewSessions.get(roomName).currentQuestion = result.question;
 
       io.to(roomName).emit("question:detected", result);
@@ -177,15 +179,22 @@ io.on("connection", (socket) => {
   //   }
   // });
   socket.on("pcm-data", (data) => {
-    let connection = deepgramConnections.get(socket.id);
+    try {
+      if (!data || !data.pcm) return;
+      let connection = deepgramConnections.get(socket.id);
 
-    if (!connection) {
-      connection = connectDeepgram(data.roomName, data.role);
+      if (!connection) {
+        connection = connectDeepgram(data.roomName, data.role);
+      }
+
+      if (connection && typeof connection.send === "function") {
+        connection.send(
+          Buffer.from(new Int16Array(data.pcm).buffer)
+        );
+      }
+    } catch (err) {
+      console.error("PCM processing error:", err);
     }
-
-    connection.send(
-      Buffer.from(new Int16Array(data.pcm).buffer)
-    );
   });
   socket.on("refresh-suggestions", async ({ roomName }) => {
     try {
@@ -273,7 +282,7 @@ app.use(express.json());
 app.post("/interview/question", async (req, res) => {
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-2.0-flash",
       contents: `Generate exactly 3 interview questions for a java developer.
       Rules:
         - Return only questions
@@ -282,6 +291,14 @@ app.post("/interview/question", async (req, res) => {
         - No extra text
         `,
     });
+
+    const text = response.text || "";
+    const questions = text
+      .split("\n")
+      .map((q) => q.replace(/^\d+\.\s*/, "").trim())
+      .filter((q) => q.length > 0);
+
+    res.json({ questions });
   } catch (error) {
     console.error("Gemini Error:", error);
 
@@ -293,20 +310,20 @@ app.post("/interview/question", async (req, res) => {
 app.post("/interview/select-question", (req, res) => {
   const { question } = req.body;
 
-  if (!interviewSessions["default"]) {
-    interviewSessions["default"] = {
+  if (!interviewSessions.has("default")) {
+    interviewSessions.set("default", {
+      currentQuestion: null,
+      evaluations: [],
       qaPairs: []
-    };
+    });
   }
 
-  interviewSessions["default"].qaPairs.push({
+  const session = interviewSessions.get("default");
+  if (!session.qaPairs) session.qaPairs = [];
+  session.qaPairs.push({
     question,
     answer: ""
   });
-
-  console.log(
-    JSON.stringify(interviewSessions, null, 2)
-  );
 
   res.json({
     success: true
@@ -322,8 +339,15 @@ app.use("/api", apiRoutes);
 app.use("/rooms", roomRoutes);
 app.use("/interview", interviewRoutes);
 
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("Unhandled Rejection at:", promise, "reason:", reason);
+});
+
+process.on("uncaughtException", (err) => {
+  console.error("Uncaught Exception thrown:", err);
+});
+
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, async () => {
   console.log(`Server running on port ${PORT}`);
-
 });

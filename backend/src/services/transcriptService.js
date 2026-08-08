@@ -66,9 +66,12 @@ class TranscriptService {
             );
 
           if (result.type === "QUESTION") {
-
-            interviewSessions.get(roomName).currentQuestion =
-              result.question;
+            if (interviewSessions) {
+              if (!interviewSessions.has(roomName)) {
+                interviewSessions.set(roomName, { currentQuestion: null, evaluations: [] });
+              }
+              interviewSessions.get(roomName).currentQuestion = result.question;
+            }
 
             io.to(roomName).emit(
               "question:detected",

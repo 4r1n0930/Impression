@@ -3,20 +3,20 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  background-color: #09090b;
+  background-color: #000000;
   font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, sans-serif;
-  color: #fafafa;
+  color: #ffffff;
   padding: 40px 20px;
 }
 
 .profile-card {
   width: 100%;
-  max-width: 520px;
-  background-color: #121215;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 20px;
+  max-width: 540px;
+  background-color: #0d0d10;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 24px;
   padding: 40px;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.9);
   display: flex;
   flex-direction: column;
   gap: 20px;
@@ -29,10 +29,10 @@
 .back-link {
   color: #a1a1aa;
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
   text-decoration: none;
   display: inline-block;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
   transition: color 0.2s ease;
 }
 
@@ -41,9 +41,9 @@
 }
 
 .profile-header h1 {
-  font-size: 24px;
+  font-size: 26px;
   font-weight: 800;
-  color: #fafafa;
+  color: #ffffff;
   margin: 0 0 6px 0;
   letter-spacing: -0.03em;
 }
@@ -55,13 +55,13 @@
 }
 
 .profile-alert {
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.25);
   color: #ffffff;
   padding: 12px 16px;
-  border-radius: 10px;
+  border-radius: 12px;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .label-with-status {
@@ -71,24 +71,24 @@
 }
 
 .status-badge {
-  font-size: 11px;
-  font-weight: 700;
+  font-size: 10px;
+  font-weight: 800;
   padding: 4px 10px;
-  border-radius: 20px;
-  letter-spacing: 0.04em;
+  border-radius: 9999px;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
 .status-badge.configured {
-  background: rgba(34, 197, 94, 0.15);
-  color: #4ade80;
-  border: 1px solid rgba(74, 222, 128, 0.3);
+  background: #ffffff;
+  color: #000000;
+  border: 1px solid #ffffff;
 }
 
 .status-badge.default {
-  background: rgba(161, 161, 170, 0.15);
+  background: rgba(255, 255, 255, 0.08);
   color: #a1a1aa;
-  border: 1px solid rgba(161, 161, 170, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.18);
 }
 
 .api-key-input-wrapper {
@@ -104,40 +104,40 @@
 
 .toggle-key-btn {
   position: absolute;
-  right: 8px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  color: #a1a1aa;
-  padding: 6px 10px;
-  border-radius: 6px;
+  right: 10px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  padding: 6px 12px;
+  border-radius: 8px;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .toggle-key-btn:hover {
-  color: #ffffff;
-  background: rgba(255, 255, 255, 0.15);
+  color: #000000;
+  background: #ffffff;
 }
 
 .field-hint {
   font-size: 12px;
   color: #71717a;
-  margin-top: 4px;
+  margin-top: 6px;
   display: block;
 }
 
 .form-input.disabled {
-  opacity: 0.6;
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
 .form-input-file {
-  background: #18181b;
-  border: 1px dashed #27272a;
-  border-radius: 10px;
-  padding: 10px 14px;
+  background: #000000;
+  border: 1px dashed rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  padding: 12px 16px;
   color: #a1a1aa;
   font-size: 13px;
   width: 100%;
@@ -145,19 +145,19 @@
 
 .profile-actions {
   display: flex;
-  gap: 12px;
-  margin-top: 10px;
+  gap: 14px;
+  margin-top: 14px;
 }
 
 .btn-primary {
   flex: 1;
   background-color: #ffffff;
-  color: #09090b;
+  color: #000000;
   border: none;
-  border-radius: 10px;
-  padding: 12px;
+  border-radius: 12px;
+  padding: 14px;
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 800;
   cursor: pointer;
   transition: all 0.2s ease;
 }
@@ -165,40 +165,43 @@
 .btn-primary:hover {
   background-color: #e4e4e7;
   transform: translateY(-1px);
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
 }
 
 .btn-secondary {
   flex: 1;
   background-color: transparent;
   color: #a1a1aa;
-  border: 1px solid #27272a;
-  border-radius: 10px;
-  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  padding: 14px;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .btn-secondary:hover {
   color: #ffffff;
-  border-color: rgba(255, 255, 255, 0.3);
+  border-color: #ffffff;
+  background: rgba(255, 255, 255, 0.05);
 }
+
 .form-divider {
-  margin: 28px 0 20px;
+  margin: 24px 0 16px;
   border: none;
-  border-top: 1px solid #2d3748;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
 }
 
 .section-title {
   font-size: 18px;
-  font-weight: 600;
-  color: #fff;
+  font-weight: 700;
+  color: #ffffff;
   margin-bottom: 6px;
 }
 
 .section-description {
-  font-size: 14px;
-  color: #9ca3af;
+  font-size: 13px;
+  color: #a1a1aa;
   margin-bottom: 20px;
 }

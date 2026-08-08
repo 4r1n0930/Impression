@@ -2,13 +2,10 @@ import express from "express";
 import bcrypt from "bcryptjs";
 import Room from "../models/Room.js";
 import livekitService from "../services/livekitService.js";
-import { protect } from "../middleware/authMiddleware.js";
-import { decrypt } from "../utils/crypto.js";
-import User from "../models/User.js";
 
 const router = express.Router();
 
-router.post("/token", protect, async (req, res) => {
+router.post("/token", async (req, res) => {
   try {
     const { roomName, name, password, creator } = req.body;
 
@@ -36,25 +33,11 @@ router.post("/token", protect, async (req, res) => {
       return res.status(403).json({ message: "Incorrect password" });
     }
 
-    const role = creator ? "INTERVIEWEE" : "INTERVIEWER";
+    const role = req.body.role ? req.body.role.toUpperCase() : (creator ? "INTERVIEWEE" : "INTERVIEWER");
 
-    const user = await User.findById(req.user.userId);
-
-    const livekitUrl = user?.livekitUrl || process.env.LIVEKIT_URL;
-
-    const decryptedLivekitApiKey = user?.livekitApiKey
-      ? decrypt(user.livekitApiKey)
-      : "";
-
-    const decryptedLivekitApiSecret = user?.livekitApiSecret
-      ? decrypt(user.livekitApiSecret)
-      : "";
-
-    const livekitApiKey =
-      decryptedLivekitApiKey || process.env.LIVEKIT_API_KEY;
-
-    const livekitApiSecret =
-      decryptedLivekitApiSecret || process.env.LIVEKIT_API_SECRET;
+    const livekitUrl = process.env.LIVEKIT_URL;
+    const livekitApiKey = process.env.LIVEKIT_API_KEY;
+    const livekitApiSecret = process.env.LIVEKIT_API_SECRET;
 
     if (role === "INTERVIEWER") {
       const maxAllowed = room.maxInterviewers ?? 1;
