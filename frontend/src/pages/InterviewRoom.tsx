@@ -14,8 +14,8 @@ import axios from "axios";
 import { BACKEND_URL } from "../config";
 import "../style/InterviewRoom.css";
 import { io, Socket } from "socket.io-client";
-import AudioCapture from "../../public/audio/AudioCapture";
-import { Mic, MicOff, Video, VideoOff, Monitor, MessageSquare, PhoneOff, Users, Copy, Sparkles, RefreshCw, Check } from "lucide-react";
+import AudioCapture from "../audio/AudioCapture";
+import { Mic, MicOff, Video, VideoOff, Monitor, MessageSquare, PhoneOff, Users, Copy, Sparkles, RefreshCw, Check, X } from "lucide-react";
 
 const socket: Socket = io(BACKEND_URL);
 
@@ -64,6 +64,7 @@ const InterviewerLayout = ({ roomName, name }: { roomName: string; name: string 
   const [suggestedQuestions, setSuggestedQuestions] = useState<SuggestedQuestionItem[]>([]);
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState<boolean>(false);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  const [showAiDrawer, setShowAiDrawer] = useState<boolean>(false);
 
   useEffect(() => {
     const startPCM = async () => {
@@ -176,7 +177,7 @@ const InterviewerLayout = ({ roomName, name }: { roomName: string; name: string 
   const leaveRoom = () => {
     socket.emit("leaveMeeting", { roomName, userName: name });
     room.disconnect();
-    navigate(`/feedback/${encodeURIComponent(roomName)}`);
+    navigate("/gratification");
   };
 
   const toggleMic = async () => {
@@ -203,19 +204,48 @@ const InterviewerLayout = ({ roomName, name }: { roomName: string; name: string 
     }
   };
 
+  const [copiedLink, setCopiedLink] = useState(false);
+
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(meetingLink);
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 2000);
+  };
+
   return (
     <div className="room-wrapper">
       <header className="room-header">
         <div className="header-left">
-          <span className="link-label">Link:</span>
-          <code className="link-code">{meetingLink}</code>
-          <button className="copy-btn" style={{ display: "inline-flex", alignItems: "center", gap: "4px" }} onClick={() => navigator.clipboard.writeText(meetingLink)}>
-            <Copy size={13} /> Copy
+          <button
+            className={`invite-link-btn ${copiedLink ? "copied" : ""}`}
+            onClick={handleCopyLink}
+          >
+            {copiedLink ? <Check size={14} /> : <Copy size={14} />}
+            <span>{copiedLink ? "Copied!" : "Invite link"}</span>
           </button>
         </div>
-        <h2 className="room-name">{roomName}</h2>
-        <div className="participant-count" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-          <Users size={16} /> {participants.length}
+        
+        <div className="header-center">
+          <h2 className="room-name">{roomName}</h2>
+        </div>
+
+        <div className="header-right">
+          <button
+            className={`ai-trigger-btn ${showAiDrawer ? "active" : ""}`}
+            onClick={() => setShowAiDrawer(!showAiDrawer)}
+            title="Toggle Optional AI Suggested Questions"
+          >
+            <Sparkles size={15} />
+            <span>AI Questions</span>
+            {suggestedQuestions.length > 0 && (
+              <span className="ai-count-badge">{suggestedQuestions.length}</span>
+            )}
+          </button>
+
+          <button className="circular-participants-btn" title={`Participants (${participants.length})`}>
+            <Users size={18} />
+            <span className="participants-badge">{participants.length}</span>
+          </button>
         </div>
       </header>
 
@@ -270,111 +300,115 @@ const InterviewerLayout = ({ roomName, name }: { roomName: string; name: string 
             </div>
           </div>
 
-          <div className="ai-panel">
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <h3 style={{ display: "flex", alignItems: "center", gap: "8px", margin: 0, fontSize: "16px" }}>
-                <Sparkles size={18} color="#60a5fa" /> AI Suggested Questions
-              </h3>
-              {isLoadingSuggestions && (
-                <RefreshCw size={14} className="animate-spin" style={{ color: "#60a5fa" }} />
-              )}
-            </div>
-
-            <div className="questions-container" style={{ display: "flex", flexDirection: "column", gap: "12px", flex: 1, overflowY: "auto" }}>
-              {suggestedQuestions.length === 0 ? (
-                <div style={{ textAlign: "center", color: "#9ca3af", padding: "24px 12px", fontSize: "13px", lineHeight: "1.5" }}>
-                  {isLoadingSuggestions ? "Generating intelligent question suggestions..." : "No suggestions available yet. Click refresh below or wait for interviewee responses."}
-                </div>
-              ) : (
-                suggestedQuestions.map((item, index) => (
-                  <div
-                    key={index}
-                    className="question-card"
-                    onClick={() => handleCopyQuestion(item.question, index)}
-                    title="Click to copy question to clipboard"
-                  >
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "6px" }}>
-                      <span style={{ fontSize: "11px", fontWeight: 700, color: "#60a5fa", letterSpacing: "0.5px" }}>
-                        QUESTION {index + 1}
-                      </span>
-                      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                        {item.type && (
-                          <span
-                            style={{
-                              fontSize: "10px",
-                              padding: "2px 6px",
-                              borderRadius: "10px",
-                              fontWeight: 700,
-                              textTransform: "uppercase",
-                              backgroundColor: item.type.includes("FOLLOW") ? "rgba(234, 179, 8, 0.2)" : "rgba(59, 130, 246, 0.2)",
-                              color: item.type.includes("FOLLOW") ? "#fde047" : "#93c5fd",
-                              border: item.type.includes("FOLLOW") ? "1px solid rgba(234, 179, 8, 0.4)" : "1px solid rgba(59, 130, 246, 0.4)"
-                            }}
-                          >
-                            {item.type.replace("_", " ")}
-                          </span>
-                        )}
-                        {copiedIndex === index ? (
-                          <span style={{ fontSize: "11px", color: "#4ade80", display: "flex", alignItems: "center", gap: "2px" }}>
-                            <Check size={12} /> Copied
-                          </span>
-                        ) : (
-                          <Copy size={12} style={{ color: "#9ca3af", opacity: 0.6 }} />
-                        )}
-                      </div>
-                    </div>
-                    <p style={{ margin: 0, fontSize: "13px", lineHeight: "1.45", color: "#f3f4f6", fontWeight: 400 }}>
-                      {item.question}
-                    </p>
+          {/* Optional Floating Drawer AI Panel */}
+          {showAiDrawer && (
+            <div className="ai-drawer-overlay">
+              <div className="ai-panel drawer-mode">
+                <div className="ai-panel-header">
+                  <div className="header-title-group">
+                    <Sparkles size={16} />
+                    <h3>AI Suggested Questions</h3>
+                    <span className="optional-badge">OPTIONAL</span>
                   </div>
-                ))
-              )}
-            </div>
+                  <button
+                    className="ai-close-btn"
+                    onClick={() => setShowAiDrawer(false)}
+                    aria-label="Close AI panel"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
 
-            <button
-              className="refresh-btn"
-              disabled={isLoadingSuggestions}
-              style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px", opacity: isLoadingSuggestions ? 0.7 : 1 }}
-              onClick={() => {
-                setIsLoadingSuggestions(true);
-                socket.emit("refresh-suggestions", { roomName });
-              }}
-            >
-              <RefreshCw size={16} className={isLoadingSuggestions ? "animate-spin" : ""} />
-              {isLoadingSuggestions ? "Generating..." : "Refresh Suggestions"}
-            </button>
-          </div>
+                <div className="questions-container">
+                  {suggestedQuestions.length === 0 ? (
+                    <div className="empty-questions-state">
+                      {isLoadingSuggestions ? "Generating question suggestions..." : "No suggestions available yet. Wait for interviewee responses or click refresh below."}
+                    </div>
+                  ) : (
+                    suggestedQuestions.map((item, index) => (
+                      <div
+                        key={index}
+                        className="question-card"
+                        onClick={() => handleCopyQuestion(item.question, index)}
+                        title="Click to copy question to clipboard"
+                      >
+                        <div className="question-card-header">
+                          <span className="q-badge-num">QUESTION {index + 1}</span>
+                          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                            {item.type && (
+                              <span className={`q-type-badge ${item.type.includes("FOLLOW") ? "type-followup" : "type-next"}`}>
+                                {item.type.replace("_", " ")}
+                              </span>
+                            )}
+                            {copiedIndex === index ? (
+                              <span className="copied-tag">
+                                <Check size={12} /> Copied
+                              </span>
+                            ) : (
+                              <Copy size={12} className="copy-icon" />
+                            )}
+                          </div>
+                        </div>
+                        <p className="question-text">{item.question}</p>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                <button
+                  className="refresh-btn"
+                  disabled={isLoadingSuggestions}
+                  onClick={() => {
+                    setIsLoadingSuggestions(true);
+                    socket.emit("refresh-suggestions", { roomName });
+                  }}
+                >
+                  <RefreshCw size={15} className={isLoadingSuggestions ? "animate-spin" : ""} />
+                  {isLoadingSuggestions ? "Generating..." : "Refresh Suggestions"}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </main>
 
       <footer className="room-footer">
-        <button
-          className={"control-btn" + (isMicrophoneEnabled ? " active" : " inactive")}
-          onClick={toggleMic}
-          title={isMicrophoneEnabled ? "Mute" : "Unmute"}
-        >
-          {isMicrophoneEnabled ? <Mic size={20} /> : <MicOff size={20} />}
-        </button>
-        <button
-          className={"control-btn" + (isCameraEnabled ? " active" : " inactive")}
-          onClick={toggleCam}
-          title={isCameraEnabled ? "Camera Off" : "Camera On"}
-        >
-          {isCameraEnabled ? <Video size={20} /> : <VideoOff size={20} />}
-        </button>
-        <button
-          className={"control-btn" + (isScreenShareEnabled ? " screen-active" : " active")}
-          onClick={toggleScreenShare}
-          title={isScreenShareEnabled ? "Stop Sharing" : "Share Screen"}
-        >
-          <Monitor size={20} />
-        </button>
-        <button className="control-btn chat" title="Chat">
-          <MessageSquare size={20} />
-        </button>
-        <button className="control-btn leave" onClick={leaveRoom} title="Leave">
-          <PhoneOff size={20} />
-        </button>
+        <div className="floating-dock">
+          <button
+            className={"control-btn" + (isMicrophoneEnabled ? " active" : " inactive")}
+            onClick={toggleMic}
+            title={isMicrophoneEnabled ? "Mute" : "Unmute"}
+          >
+            {isMicrophoneEnabled ? <Mic size={20} /> : <MicOff size={20} />}
+          </button>
+          <button
+            className={"control-btn" + (isCameraEnabled ? " active" : " inactive")}
+            onClick={toggleCam}
+            title={isCameraEnabled ? "Camera Off" : "Camera On"}
+          >
+            {isCameraEnabled ? <Video size={20} /> : <VideoOff size={20} />}
+          </button>
+          <button
+            className={"control-btn" + (isScreenShareEnabled ? " screen-active" : " active")}
+            onClick={toggleScreenShare}
+            title={isScreenShareEnabled ? "Stop Sharing" : "Share Screen"}
+          >
+            <Monitor size={20} />
+          </button>
+          <button
+            className={`control-btn ai-toggle ${showAiDrawer ? "ai-active" : ""}`}
+            onClick={() => setShowAiDrawer(!showAiDrawer)}
+            title="Optional AI Suggested Questions"
+          >
+            <Sparkles size={20} />
+          </button>
+          <button className="control-btn chat" title="Chat">
+            <MessageSquare size={20} />
+          </button>
+          <button className="control-btn leave" onClick={leaveRoom} title="Leave">
+            <PhoneOff size={20} />
+          </button>
+        </div>
       </footer>
     </div>
   );
@@ -402,6 +436,20 @@ const InterviewRoom = () => {
   }, [roomName]);
 
   useEffect(() => {
+    const storedUserStr = localStorage.getItem("user");
+    if (storedUserStr) {
+      try {
+        const storedUser = JSON.parse(storedUserStr);
+        if (storedUser.name || storedUser.email) {
+          setUserName(storedUser.name || storedUser.email.split("@")[0]);
+        }
+      } catch (e) {
+        console.error("Error parsing stored user:", e);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
     return () => {
       if (roomName && userName) {
         socket.emit("leaveMeeting", { roomName, userName });
@@ -416,6 +464,10 @@ const InterviewRoom = () => {
 
     try {
       const jwtToken = localStorage.getItem("token");
+      const headers: Record<string, string> = {};
+      if (jwtToken && jwtToken !== "null" && jwtToken !== "undefined") {
+        headers.Authorization = `Bearer ${jwtToken}`;
+      }
 
       const res = await axios.post(
         `${BACKEND_URL}/api/token`,
@@ -423,13 +475,10 @@ const InterviewRoom = () => {
           roomName,
           name: userName,
           password,
+          role: "INTERVIEWER",
           creator: false,
         },
-        {
-          headers: {
-            Authorization: `Bearer ${jwtToken}`,
-          },
-        }
+        { headers }
       );
       socket.emit("joinMeeting", {
         roomName,
@@ -522,7 +571,7 @@ const InterviewRoom = () => {
       token={token}
       serverUrl={LIVEKIT_URL}
       onDisconnected={() => {
-        navigate(`/feedback/${encodeURIComponent(roomName || "")}`);
+        navigate("/gratification");
       }}
       data-lk-theme="default"
       className="livekit-container"

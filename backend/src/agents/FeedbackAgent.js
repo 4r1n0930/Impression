@@ -22,7 +22,7 @@ class FeedbackAgent {
       const model = getGeminiModel(userApiKey);
 
       const result = await model.generateContent({
-        model: "gemini-2.5-flash",
+        model: "gemini-flash-latest",
         contents: prompt,
       });
 
@@ -46,7 +46,7 @@ class FeedbackAgent {
         sumScore += Number(ev.score ?? 7);
         sumTech += Number(ev.technicalAccuracy ?? 7);
         sumComp += Number(ev.completeness ?? 7);
-        sumComm += Number(ev.communication || ev.communicationClarity ?? 7);
+        sumComm += Number((ev.communication || ev.communicationClarity) ?? 7);
         sumConf += Number(ev.confidence ?? 7);
       });
 

@@ -182,7 +182,7 @@ const Feedback: React.FC = () => {
   };
 
   const handleDownload = () => {
-    alert("Downloading PDF Feedback Report...");
+    window.print();
   };
 
   if (loading || !reportData) {
@@ -216,7 +216,7 @@ const Feedback: React.FC = () => {
             <Download size={16} />
             <span>Export Report</span>
           </button>
-          <button className="btn-primary" onClick={() => navigate("/dashboard")}>
+          <button className="btn-primary" onClick={() => navigate("/roomConfig")}>
             <RotateCcw size={16} />
             <span>New Session</span>
           </button>
@@ -430,9 +430,6 @@ const Feedback: React.FC = () => {
               <p>Practice regularly to build confidence and polish your response timing.</p>
             </div>
           </div>
-          <button className="btn-primary" onClick={() => navigate("/dashboard")}>
-            Return to Dashboard
-          </button>
         </section>
       </main>
     </div>

@@ -1,4 +1,4 @@
-    import jwt from "jsonwebtoken";
+import jwt from "jsonwebtoken";
 
 const protect = (req, res, next) => {
   try {
@@ -28,4 +28,5 @@ const protect = (req, res, next) => {
   }
 };
 
+export { protect };
 export default protect;

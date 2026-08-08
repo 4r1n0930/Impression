@@ -12,6 +12,7 @@ const RoomConfig = lazy(() => import('./pages/RoomConfig'));
 const InterviewRoom = lazy(() => import('./pages/InterviewRoom'));
 const Interviewee = lazy(() => import('./pages/Interviewee'));
 const Feedback = lazy(() => import('./pages/Feedback'));
+const Gratification = lazy(() => import('./pages/Gratification'));
 
 const LoadingFallback: React.FC = () => (
   <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
@@ -68,6 +69,7 @@ const App: React.FC = () => {
           />
           <Route path="/feedback" element={<Feedback />} />
           <Route path="/feedback/:roomName" element={<Feedback />} />
+          <Route path="/gratification" element={<Gratification />} />
           
           {/* Catch-all route redirects to landing page */}
           <Route path="*" element={<Navigate to="/" replace />} />
