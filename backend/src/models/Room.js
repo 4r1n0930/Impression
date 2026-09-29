@@ -20,7 +20,8 @@ const roomSchema = new mongoose.Schema(
       select: false,
     },
     creator: {
-      type: String,
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
       required: true,
     },
   },

@@ -482,7 +482,7 @@ router.put("/update-api-key", protect, async (req, res) => {
     const user = await User.findByIdAndUpdate(
       req.user.userId,
       {
-        geminiApiKey: encryptedGeminiKey,
+        geminiApiKey: encryptedKey,
         livekitUrl: livekitUrl || "",
         livekitApiKey: encryptedLivekitApiKey,
         livekitApiSecret: encryptedLivekitApiSecret,

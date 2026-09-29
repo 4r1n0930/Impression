@@ -292,6 +292,7 @@ const InterviewRoom = () => {
   const navigate = useNavigate();
 
   const [token, setToken] = useState<string | null>(null);
+  const [livekitUrl, setLivekitUrl] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [userName, setUserName] = useState("");
   const [password, setPassword] = useState("");
@@ -318,12 +319,11 @@ const InterviewRoom = () => {
 
   const handleJoin = async () => {
     if (!userName.trim() || !roomName) return;
+
     setIsJoining(true);
     setError(null);
 
     try {
-      const jwtToken = localStorage.getItem("token");
-
       const res = await axios.post(
         `${BACKEND_URL}/api/token`,
         {
@@ -331,23 +331,25 @@ const InterviewRoom = () => {
           name: userName,
           password,
           creator: false,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${jwtToken}`,
-          },
         }
       );
+
       socket.emit("joinMeeting", {
         roomName,
         userName: userName,
-        role: "interviewer"
+        role: "interviewer",
       });
 
       setToken(res.data.token);
+      setLivekitUrl(res.data.livekitUrl);
+
     } catch (err: any) {
-      const msg = err.response?.data?.message || "Failed to join room. You might not be authorized.";
+      const msg =
+        err.response?.data?.message ||
+        "Failed to join room. You might not be authorized.";
+
       setError(msg);
+
       if (msg.toLowerCase().includes("full")) {
         alert(msg);
         navigate("/");
@@ -427,7 +429,7 @@ const InterviewRoom = () => {
       video={true}
       audio={true}
       token={token}
-      serverUrl={LIVEKIT_URL}
+      serverUrl={livekitUrl}
       onDisconnected={() => {
         navigate(`/feedback/${encodeURIComponent(roomName || "")}`);
       }}

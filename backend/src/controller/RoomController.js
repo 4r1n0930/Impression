@@ -18,7 +18,7 @@ class RoomController {
         name: roomName,
         maxInterviewers,
         password,
-        creator: req.user.email,
+        creator: req.user._id,
       });
 
       res.status(201).json({
