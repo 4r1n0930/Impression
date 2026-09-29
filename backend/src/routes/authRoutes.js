@@ -469,7 +469,7 @@ router.put("/update-api-key", protect, async (req, res) => {
       livekitApiSecret,
     } = req.body;
 
-    const encryptedKey = geminiApiKey ? encrypt(geminiApiKey) : "";
+    const encryptedGeminiKey = geminiApiKey ? encrypt(geminiApiKey) : "";
 
     const encryptedLivekitApiKey = livekitApiKey
       ? encrypt(livekitApiKey)

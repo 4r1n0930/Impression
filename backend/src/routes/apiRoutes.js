@@ -2,9 +2,7 @@ import express from "express";
 import bcrypt from "bcryptjs";
 import Room from "../models/Room.js";
 import livekitService from "../services/livekitService.js";
-import protect from "../middleware/authMiddleware.js";
 import { decrypt } from "../utils/cryptoUtils.js";
-import User from "../models/User.js";
 import jwt from "jsonwebtoken";
 
 const router = express.Router();

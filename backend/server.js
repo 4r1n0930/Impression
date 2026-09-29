@@ -19,7 +19,7 @@ import nextQuestionAgent from "./src/agents/NextQuestionAgent.js";
 import User from "./src/models/User.js";
 import { decrypt } from "./src/utils/cryptoUtils.js";
 
-const interviewSessions = new Map();
+// const deepgramConnections = new Map();
 const deepgramConnections = new Map();
 
 const answerBuffers = new Map();
@@ -61,7 +61,7 @@ io.on("connection", (socket) => {
       socket,
       roomName,
       role,
-      async ({ roomName, role, transcript }) => {
+      async ({ roomName, role, transcript, isUtteranceEnd, speechFinal }) => {
 
         await transcriptService.handleTranscript({
           io,
@@ -69,7 +69,8 @@ io.on("connection", (socket) => {
           role,
           transcript,
           userApiKey: socket.userApiKey || userApiKey,
-          interviewSessions,
+          isUtteranceEnd,
+          speechFinal,
         });
 
       }
@@ -100,12 +101,7 @@ io.on("connection", (socket) => {
     socket.join(roomName);
 
     // Ensure interview session exists before starting Deepgram to avoid race conditions
-    if (!interviewSessions.has(roomName)) {
-      interviewSessions.set(roomName, {
-        currentQuestion: null,
-        evaluations: []
-      });
-    }
+    interviewController.initSession(roomName);
 
     // Track user
     if (!activeUsers.has(roomName)) {
@@ -134,15 +130,22 @@ io.on("connection", (socket) => {
       users: usersInRoom,
     });
 
+    // Send initial AI suggested questions for interviewer joining room
+    if (role === "interviewer" || role === "INTERVIEWER") {
+      try {
+        const initialSuggestions = await interviewController.refreshSuggestions(roomName, userApiKey);
+        socket.emit("ai-suggested-questions", initialSuggestions);
+      } catch (err) {
+        console.error("Error generating initial AI suggestions on join:", err);
+      }
+    }
+
   });
   socket.on("interviewer:transcript", async ({ roomName, transcript }) => {
     const result =
-      await interviewController.processInterviewerSpeech(transcript);
+      await interviewController.processInterviewerSpeech(roomName, transcript, socket.userApiKey);
 
     if (result.type === "QUESTION") {
-
-      interviewSessions.get(roomName).currentQuestion = result.question;
-
       io.to(roomName).emit("question:detected", result);
     }
   });
@@ -167,22 +170,33 @@ io.on("connection", (socket) => {
   //   }
   // });
   socket.on("pcm-data", (data) => {
-    let connection = deepgramConnections.get(socket.id);
+    try {
+      if (!data || !data.pcm) return;
+      let connection = deepgramConnections.get(socket.id);
 
-    if (!connection) {
-      connection = connectDeepgram(data.roomName, data.role);
+      if (!connection) {
+        connection = connectDeepgram(data.roomName, data.role);
+      }
+
+      if (connection && typeof connection.send === "function") {
+        connection.send(
+          Buffer.from(new Int16Array(data.pcm).buffer)
+        );
+      }
+    } catch (err) {
+      console.error("PCM processing error:", err);
     }
-
-    connection.send(
-      Buffer.from(new Int16Array(data.pcm).buffer)
-    );
   });
-  socket.on("refresh-suggestions", ({ roomName }) => {
-    socket.emit("ai-suggested-questions", [
-      "Explain TreeMap.",
-      "What is LinkedHashMap?",
-      "How does HashMap handle collisions?"
-    ]);
+  socket.on("refresh-suggestions", async ({ roomName }) => {
+    try {
+      const suggestions = await interviewController.refreshSuggestions(
+        roomName,
+        socket.userApiKey
+      );
+      io.to(roomName).emit("ai-suggested-questions", suggestions);
+    } catch (err) {
+      console.error("Error refreshing AI suggestions:", err);
+    }
   });
   // When user leaves meeting
   socket.on("leaveMeeting", (data) => {
@@ -259,7 +273,7 @@ app.use(express.json());
 app.post("/interview/question", async (req, res) => {
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-2.0-flash",
       contents: `Generate exactly 3 interview questions for a java developer.
       Rules:
         - Return only questions
@@ -268,6 +282,14 @@ app.post("/interview/question", async (req, res) => {
         - No extra text
         `,
     });
+
+    const text = response.text || "";
+    const questions = text
+      .split("\n")
+      .map((q) => q.replace(/^\d+\.\s*/, "").trim())
+      .filter((q) => q.length > 0);
+
+    res.json({ questions });
   } catch (error) {
     console.error("Gemini Error:", error);
 
@@ -277,22 +299,9 @@ app.post("/interview/question", async (req, res) => {
   }
 });
 app.post("/interview/select-question", (req, res) => {
-  const { question } = req.body;
+  const { question, roomName = "default" } = req.body;
 
-  if (!interviewSessions["default"]) {
-    interviewSessions["default"] = {
-      qaPairs: []
-    };
-  }
-
-  interviewSessions["default"].qaPairs.push({
-    question,
-    answer: ""
-  });
-
-  console.log(
-    JSON.stringify(interviewSessions, null, 2)
-  );
+  interviewController.setCurrentQuestion(roomName, question);
 
   res.json({
     success: true
@@ -308,8 +317,15 @@ app.use("/api", apiRoutes);
 app.use("/rooms", roomRoutes);
 app.use("/interview", interviewRoutes);
 
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("Unhandled Rejection at:", promise, "reason:", reason);
+});
+
+process.on("uncaughtException", (err) => {
+  console.error("Uncaught Exception thrown:", err);
+});
+
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, async () => {
   console.log(`Server running on port ${PORT}`);
-
 });

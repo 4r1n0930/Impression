@@ -15,8 +15,8 @@ import { io, Socket } from "socket.io-client";
 import { BACKEND_URL } from "../config";
 import "../style/InterviewRoom.css";
 import "../style/Interviewee.css";
-import AudioCapture from "../../public/audio/AudioCapture";
-import { Mic, MicOff, Video, VideoOff, Monitor, MessageSquare, PhoneOff, Users, Copy, HelpCircle } from "lucide-react";
+import AudioCapture from "../audio/AudioCapture";
+import { Mic, MicOff, Video, VideoOff, Monitor, MessageSquare, PhoneOff, Users, Copy, Check, HelpCircle } from "lucide-react";
 
 const socket: Socket = io(BACKEND_URL);
 
@@ -25,10 +25,12 @@ const IntervieweeLayout = ({ roomName, name }: { roomName: string; name: string 
   const participants = useParticipants();
   const { localParticipant, isMicrophoneEnabled, isCameraEnabled, isScreenShareEnabled } = useLocalParticipant();
   const room = useRoomContext();
-  const tracks = useTracks([{ source: Track.Source.Camera, withPlaceholder: true }]);
+  const cameraTracks = useTracks([{ source: Track.Source.Camera, withPlaceholder: true }]);
+  const screenShareTracks = useTracks([{ source: Track.Source.ScreenShare, withPlaceholder: false }]);
   const captureRef = useRef<AudioCapture | null>(null);
 
   const [currentQuestion, setCurrentQuestion] = useState<string | null>(null);
+  const [copiedLink, setCopiedLink] = useState(false);
 
   // Audio PCM capture setup
   useEffect(() => {
@@ -98,9 +100,15 @@ const IntervieweeLayout = ({ roomName, name }: { roomName: string; name: string 
     };
   }, []);
 
-  const interviewerTracks = tracks.filter((t: any) => !t.participant.isLocal);
-  const localTrack = tracks.find((t: any) => t.participant.isLocal);
+  const interviewerTracks = cameraTracks.filter((t: any) => !t.participant.isLocal);
+  const localTrack = cameraTracks.find((t: any) => t.participant.isLocal);
   const meetingLink = `${window.location.origin}/room/${roomName}`;
+
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(meetingLink);
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 2000);
+  };
 
   const leaveRoom = () => {
     socket.emit("leaveMeeting", { roomName, userName: name });
@@ -116,24 +124,59 @@ const IntervieweeLayout = ({ roomName, name }: { roomName: string; name: string 
     <div className="room-wrapper">
       <header className="room-header">
         <div className="header-left">
-          <span className="link-label">Interviewer Link:</span>
-          <code className="link-code">{meetingLink}</code>
-          <button className="copy-btn" style={{ display: "inline-flex", alignItems: "center", gap: "5px" }} onClick={() => {
-            navigator.clipboard.writeText(meetingLink);
-            alert("Interviewer link copied!");
-          }}>
-            <Copy size={13} /> Copy Link
+          <button
+            className={`invite-link-btn ${copiedLink ? "copied" : ""}`}
+            onClick={handleCopyLink}
+          >
+            {copiedLink ? <Check size={14} /> : <Copy size={14} />}
+            <span>{copiedLink ? "Copied!" : "Invite link"}</span>
           </button>
         </div>
-        <h2 className="room-name">Interview Room: {roomName}</h2>
-        <div className="participant-count" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-          <Users size={16} /> {participants.length} (Candidate)
+        <div className="header-center">
+          <h2 className="room-name">{roomName}</h2>
+        </div>
+
+        <div className="header-right">
+          <button className="circular-participants-btn" title={`Participants (${participants.length})`}>
+            <Users size={18} />
+            <span className="participants-badge">{participants.length}</span>
+          </button>
         </div>
       </header>
 
-      <main className="interviewee-main" style={{ display: "flex", gap: "16px", padding: "16px", flex: 1, minHeight: 0 }}>
-        <div style={{ flex: 1, position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
-          {interviewerTracks.length === 0 ? (
+      <main className="interviewee-main" style={{ display: "flex", flexDirection: "column", padding: "16px", flex: 1, minHeight: 0, position: "relative" }}>
+        <div className="interviewee-stage" style={{ flex: 1, position: "relative", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: 0 }}>
+          {screenShareTracks.length > 0 ? (
+            <div className="screen-share-stage" style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", gap: "12px", minHeight: 0 }}>
+              {/* Active Screen Share Tile */}
+              <div className="screen-tile-container" style={{ flex: 1, width: "100%", borderRadius: "12px", overflow: "hidden", background: "#1e293b", position: "relative", minHeight: 0 }}>
+                {screenShareTracks.map((screenTrack: any) => (
+                  <div key={screenTrack.participant.identity + "_screen"} style={{ width: "100%", height: "100%", position: "relative" }}>
+                    <ParticipantTile trackRef={screenTrack} />
+                    <span className="participant-label">
+                      {screenTrack.participant.isLocal
+                        ? "Your Screen (Sharing)"
+                        : `${screenTrack.participant.name || screenTrack.participant.identity}'s Screen`}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Interviewers Row below screen share */}
+              {interviewerTracks.length > 0 && (
+                <div className="interviewer-subrow" style={{ height: "100px", display: "flex", gap: "8px", justifyContent: "center", flexShrink: 0 }}>
+                  {interviewerTracks.map((t: any) => (
+                    <div key={t.participant.identity} style={{ width: "140px", height: "100%", borderRadius: "8px", overflow: "hidden", background: "#1e293b", position: "relative" }}>
+                      <ParticipantTile trackRef={t} />
+                      <span className="participant-label">
+                        {t.participant.name || t.participant.identity}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : interviewerTracks.length === 0 ? (
             <div className="waiting-container" style={{ textAlign: "center" }}>
               <p className="waiting-text" style={{ fontSize: "20px", color: "#94a3b8" }}>
                 Waiting for interviewers to join...
@@ -163,45 +206,46 @@ const IntervieweeLayout = ({ roomName, name }: { roomName: string; name: string 
         </div>
 
         {currentQuestion && (
-          <aside className="ai-panel" style={{ width: "300px", flexShrink: 0 }}>
-            <div className="current-question-box">
-              <h4 style={{ color: "#3b82f6", marginBottom: "8px", display: "flex", alignItems: "center", gap: "6px" }}>
-                <HelpCircle size={16} /> Active Question
-              </h4>
-              <p style={{ fontSize: "14px", lineHeight: "1.5" }}>{currentQuestion}</p>
+          <div className="bottom-question-banner">
+            <div className="banner-title">
+              <HelpCircle size={15} />
+              <span>Active Question</span>
             </div>
-          </aside>
+            <p className="banner-question-text">{currentQuestion}</p>
+          </div>
         )}
       </main>
 
       <footer className="room-footer">
-        <button
-          className={"control-btn" + (isMicrophoneEnabled ? " active" : " inactive")}
-          onClick={toggleMic}
-          title={isMicrophoneEnabled ? "Mute" : "Unmute"}
-        >
-          {isMicrophoneEnabled ? <Mic size={20} /> : <MicOff size={20} />}
-        </button>
-        <button
-          className={"control-btn" + (isCameraEnabled ? " active" : " inactive")}
-          onClick={toggleCam}
-          title={isCameraEnabled ? "Camera Off" : "Camera On"}
-        >
-          {isCameraEnabled ? <Video size={20} /> : <VideoOff size={20} />}
-        </button>
-        <button
-          className={"control-btn" + (isScreenShareEnabled ? " screen-active" : " active")}
-          onClick={toggleScreenShare}
-          title={isScreenShareEnabled ? "Stop Sharing" : "Share Screen"}
-        >
-          <Monitor size={20} />
-        </button>
-        <button className="control-btn chat" title="Chat">
-          <MessageSquare size={20} />
-        </button>
-        <button className="control-btn leave" onClick={leaveRoom} title="Leave">
-          <PhoneOff size={20} />
-        </button>
+        <div className="floating-dock">
+          <button
+            className={"control-btn" + (isMicrophoneEnabled ? " active" : " inactive")}
+            onClick={toggleMic}
+            title={isMicrophoneEnabled ? "Mute" : "Unmute"}
+          >
+            {isMicrophoneEnabled ? <Mic size={20} /> : <MicOff size={20} />}
+          </button>
+          <button
+            className={"control-btn" + (isCameraEnabled ? " active" : " inactive")}
+            onClick={toggleCam}
+            title={isCameraEnabled ? "Camera Off" : "Camera On"}
+          >
+            {isCameraEnabled ? <Video size={20} /> : <VideoOff size={20} />}
+          </button>
+          <button
+            className={"control-btn" + (isScreenShareEnabled ? " screen-active" : " active")}
+            onClick={toggleScreenShare}
+            title={isScreenShareEnabled ? "Stop Sharing" : "Share Screen"}
+          >
+            <Monitor size={20} />
+          </button>
+          <button className="control-btn chat" title="Chat">
+            <MessageSquare size={20} />
+          </button>
+          <button className="control-btn leave" onClick={leaveRoom} title="Leave">
+            <PhoneOff size={20} />
+          </button>
+        </div>
       </footer>
     </div>
   );
@@ -221,8 +265,6 @@ const Interviewee = () => {
   const [error, setError] = useState("");
   const [isJoining, setIsJoining] = useState(false);
   const [roomStatus, setRoomStatus] = useState<"loading" | "valid" | "invalid">("loading");
-
-  const LIVEKIT_URL = import.meta.env.VITE_LIVEKIT_URL || "ws://localhost:7800";
 
   // Check room validity
   useEffect(() => {
@@ -274,20 +316,21 @@ const Interviewee = () => {
 
     try {
       const jwtToken = localStorage.getItem("token");
+      const headers: Record<string, string> = {};
+      if (jwtToken && jwtToken !== "null" && jwtToken !== "undefined") {
+        headers.Authorization = `Bearer ${jwtToken}`;
+      }
 
       const res = await axios.post(
         `${BACKEND_URL}/api/token`,
         {
           roomName,
-          name,
-          password,
-          creator: false,
+          name: uName,
+          password: pass,
+          role: "INTERVIEWEE",
+          creator: true,
         },
-        {
-          headers: {
-            Authorization: `Bearer ${jwtToken}`,
-          },
-        }
+        { headers }
       );
 
       socket.emit("joinMeeting", {

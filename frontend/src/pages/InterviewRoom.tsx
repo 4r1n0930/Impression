@@ -14,10 +14,42 @@ import axios from "axios";
 import { BACKEND_URL } from "../config";
 import "../style/InterviewRoom.css";
 import { io, Socket } from "socket.io-client";
-import AudioCapture from "../../public/audio/AudioCapture";
-import { Mic, MicOff, Video, VideoOff, Monitor, MessageSquare, PhoneOff, Users, Copy, Sparkles, RefreshCw } from "lucide-react";
+import AudioCapture from "../audio/AudioCapture";
+import { Mic, MicOff, Video, VideoOff, Monitor, MessageSquare, PhoneOff, Users, Copy, Sparkles, RefreshCw, Check, X } from "lucide-react";
 
 const socket: Socket = io(BACKEND_URL);
+
+interface SuggestedQuestionItem {
+  type?: string;
+  question: string;
+}
+
+const parseSuggestedQuestions = (data: any): SuggestedQuestionItem[] => {
+  if (!data) return [];
+  if (data.questions && Array.isArray(data.questions)) {
+    return data.questions.map((q: any) => {
+      if (typeof q === "string") return { question: q };
+      return {
+        type: q.type || q.action || "NEXT",
+        question: q.question || q.suggestedQuestion || String(q)
+      };
+    });
+  }
+  if (Array.isArray(data)) {
+    return data.map((q: any) => {
+      if (typeof q === "string") return { question: q };
+      return {
+        type: q.type || q.action || "NEXT",
+        question: q.question || q.suggestedQuestion || String(q)
+      };
+    });
+  }
+  if (typeof data === "object") {
+    if (data.question) return [{ type: data.type || "NEXT", question: data.question }];
+    if (data.suggestedQuestion) return [{ type: data.action || "NEXT", question: data.suggestedQuestion }];
+  }
+  return [];
+};
 
 const InterviewerLayout = ({ roomName, name }: { roomName: string; name: string }) => {
   const navigate = useNavigate();
@@ -29,11 +61,10 @@ const InterviewerLayout = ({ roomName, name }: { roomName: string; name: string 
   const cameraTracks = useTracks([{ source: Track.Source.Camera, withPlaceholder: true }]);
   const screenShareTracks = useTracks([{ source: Track.Source.ScreenShare, withPlaceholder: false }]);
 
-  const [suggestedQuestions, setSuggestedQuestions] = useState([
-    "What is HashMap?",
-    "Explain ConcurrentHashMap.",
-    "Difference between HashMap and Hashtable."
-  ]);
+  const [suggestedQuestions, setSuggestedQuestions] = useState<SuggestedQuestionItem[]>([]);
+  const [isLoadingSuggestions, setIsLoadingSuggestions] = useState<boolean>(false);
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  const [showAiDrawer, setShowAiDrawer] = useState<boolean>(false);
 
   useEffect(() => {
     const startPCM = async () => {
@@ -90,14 +121,24 @@ const InterviewerLayout = ({ roomName, name }: { roomName: string; name: string 
   }, [localParticipant, isMicrophoneEnabled, roomName, name]);
 
   useEffect(() => {
-    socket.on("ai-suggested-questions", (questions) => {
-      setSuggestedQuestions(questions);
+    socket.on("ai-suggested-questions", (data) => {
+      const parsed = parseSuggestedQuestions(data);
+      if (parsed.length > 0) {
+        setSuggestedQuestions(parsed);
+      }
+      setIsLoadingSuggestions(false);
     });
 
     return () => {
       socket.off("ai-suggested-questions");
     };
   }, []);
+
+  const handleCopyQuestion = (text: string, index: number) => {
+    navigator.clipboard.writeText(text);
+    setCopiedIndex(index);
+    setTimeout(() => setCopiedIndex(null), 2000);
+  };
 
   const isInterviewee = (participant: any) => {
     if (!participant) return false;
@@ -136,7 +177,7 @@ const InterviewerLayout = ({ roomName, name }: { roomName: string; name: string 
   const leaveRoom = () => {
     socket.emit("leaveMeeting", { roomName, userName: name });
     room.disconnect();
-    navigate(`/feedback/${encodeURIComponent(roomName)}`);
+    navigate("/gratification");
   };
 
   const toggleMic = async () => {
@@ -163,19 +204,48 @@ const InterviewerLayout = ({ roomName, name }: { roomName: string; name: string 
     }
   };
 
+  const [copiedLink, setCopiedLink] = useState(false);
+
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(meetingLink);
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 2000);
+  };
+
   return (
     <div className="room-wrapper">
       <header className="room-header">
         <div className="header-left">
-          <span className="link-label">Link:</span>
-          <code className="link-code">{meetingLink}</code>
-          <button className="copy-btn" style={{ display: "inline-flex", alignItems: "center", gap: "4px" }} onClick={() => navigator.clipboard.writeText(meetingLink)}>
-            <Copy size={13} /> Copy
+          <button
+            className={`invite-link-btn ${copiedLink ? "copied" : ""}`}
+            onClick={handleCopyLink}
+          >
+            {copiedLink ? <Check size={14} /> : <Copy size={14} />}
+            <span>{copiedLink ? "Copied!" : "Invite link"}</span>
           </button>
         </div>
-        <h2 className="room-name">{roomName}</h2>
-        <div className="participant-count" style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-          <Users size={16} /> {participants.length}
+        
+        <div className="header-center">
+          <h2 className="room-name">{roomName}</h2>
+        </div>
+
+        <div className="header-right">
+          <button
+            className={`ai-trigger-btn ${showAiDrawer ? "active" : ""}`}
+            onClick={() => setShowAiDrawer(!showAiDrawer)}
+            title="Toggle Optional AI Suggested Questions"
+          >
+            <Sparkles size={15} />
+            <span>AI Questions</span>
+            {suggestedQuestions.length > 0 && (
+              <span className="ai-count-badge">{suggestedQuestions.length}</span>
+            )}
+          </button>
+
+          <button className="circular-participants-btn" title={`Participants (${participants.length})`}>
+            <Users size={18} />
+            <span className="participants-badge">{participants.length}</span>
+          </button>
         </div>
       </header>
 
@@ -230,58 +300,115 @@ const InterviewerLayout = ({ roomName, name }: { roomName: string; name: string 
             </div>
           </div>
 
-          <div className="ai-panel">
-            <h3 style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}>
-              <Sparkles size={18} color="#60a5fa" /> AI Suggested Questions
-            </h3>
+          {/* Optional Floating Drawer AI Panel */}
+          {showAiDrawer && (
+            <div className="ai-drawer-overlay">
+              <div className="ai-panel drawer-mode">
+                <div className="ai-panel-header">
+                  <div className="header-title-group">
+                    <Sparkles size={16} />
+                    <h3>AI Suggested Questions</h3>
+                    <span className="optional-badge">OPTIONAL</span>
+                  </div>
+                  <button
+                    className="ai-close-btn"
+                    onClick={() => setShowAiDrawer(false)}
+                    aria-label="Close AI panel"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
 
-            {suggestedQuestions.map((question, index) => (
-              <div key={index} className="question-card">
-                {index + 1}. {question}
+                <div className="questions-container">
+                  {suggestedQuestions.length === 0 ? (
+                    <div className="empty-questions-state">
+                      {isLoadingSuggestions ? "Generating question suggestions..." : "No suggestions available yet. Wait for interviewee responses or click refresh below."}
+                    </div>
+                  ) : (
+                    suggestedQuestions.map((item, index) => (
+                      <div
+                        key={index}
+                        className="question-card"
+                        onClick={() => handleCopyQuestion(item.question, index)}
+                        title="Click to copy question to clipboard"
+                      >
+                        <div className="question-card-header">
+                          <span className="q-badge-num">QUESTION {index + 1}</span>
+                          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                            {item.type && (
+                              <span className={`q-type-badge ${item.type.includes("FOLLOW") ? "type-followup" : "type-next"}`}>
+                                {item.type.replace("_", " ")}
+                              </span>
+                            )}
+                            {copiedIndex === index ? (
+                              <span className="copied-tag">
+                                <Check size={12} /> Copied
+                              </span>
+                            ) : (
+                              <Copy size={12} className="copy-icon" />
+                            )}
+                          </div>
+                        </div>
+                        <p className="question-text">{item.question}</p>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                <button
+                  className="refresh-btn"
+                  disabled={isLoadingSuggestions}
+                  onClick={() => {
+                    setIsLoadingSuggestions(true);
+                    socket.emit("refresh-suggestions", { roomName });
+                  }}
+                >
+                  <RefreshCw size={15} className={isLoadingSuggestions ? "animate-spin" : ""} />
+                  {isLoadingSuggestions ? "Generating..." : "Refresh Suggestions"}
+                </button>
               </div>
-            ))}
-
-            <button
-              className="refresh-btn"
-              style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" }}
-              onClick={() => {
-                socket.emit("refresh-suggestions", { roomName });
-              }}
-            >
-              <RefreshCw size={16} /> Refresh Suggestions
-            </button>
-          </div>
+            </div>
+          )}
         </div>
       </main>
 
       <footer className="room-footer">
-        <button
-          className={"control-btn" + (isMicrophoneEnabled ? " active" : " inactive")}
-          onClick={toggleMic}
-          title={isMicrophoneEnabled ? "Mute" : "Unmute"}
-        >
-          {isMicrophoneEnabled ? <Mic size={20} /> : <MicOff size={20} />}
-        </button>
-        <button
-          className={"control-btn" + (isCameraEnabled ? " active" : " inactive")}
-          onClick={toggleCam}
-          title={isCameraEnabled ? "Camera Off" : "Camera On"}
-        >
-          {isCameraEnabled ? <Video size={20} /> : <VideoOff size={20} />}
-        </button>
-        <button
-          className={"control-btn" + (isScreenShareEnabled ? " screen-active" : " active")}
-          onClick={toggleScreenShare}
-          title={isScreenShareEnabled ? "Stop Sharing" : "Share Screen"}
-        >
-          <Monitor size={20} />
-        </button>
-        <button className="control-btn chat" title="Chat">
-          <MessageSquare size={20} />
-        </button>
-        <button className="control-btn leave" onClick={leaveRoom} title="Leave">
-          <PhoneOff size={20} />
-        </button>
+        <div className="floating-dock">
+          <button
+            className={"control-btn" + (isMicrophoneEnabled ? " active" : " inactive")}
+            onClick={toggleMic}
+            title={isMicrophoneEnabled ? "Mute" : "Unmute"}
+          >
+            {isMicrophoneEnabled ? <Mic size={20} /> : <MicOff size={20} />}
+          </button>
+          <button
+            className={"control-btn" + (isCameraEnabled ? " active" : " inactive")}
+            onClick={toggleCam}
+            title={isCameraEnabled ? "Camera Off" : "Camera On"}
+          >
+            {isCameraEnabled ? <Video size={20} /> : <VideoOff size={20} />}
+          </button>
+          <button
+            className={"control-btn" + (isScreenShareEnabled ? " screen-active" : " active")}
+            onClick={toggleScreenShare}
+            title={isScreenShareEnabled ? "Stop Sharing" : "Share Screen"}
+          >
+            <Monitor size={20} />
+          </button>
+          <button
+            className={`control-btn ai-toggle ${showAiDrawer ? "ai-active" : ""}`}
+            onClick={() => setShowAiDrawer(!showAiDrawer)}
+            title="Optional AI Suggested Questions"
+          >
+            <Sparkles size={20} />
+          </button>
+          <button className="control-btn chat" title="Chat">
+            <MessageSquare size={20} />
+          </button>
+          <button className="control-btn leave" onClick={leaveRoom} title="Leave">
+            <PhoneOff size={20} />
+          </button>
+        </div>
       </footer>
     </div>
   );
@@ -299,8 +426,6 @@ const InterviewRoom = () => {
   const [isJoining, setIsJoining] = useState(false);
   const [roomStatus, setRoomStatus] = useState<"loading" | "valid" | "invalid">("loading");
 
-  const LIVEKIT_URL = import.meta.env.VITE_LIVEKIT_URL || "ws://localhost:7800";
-
   useEffect(() => {
     if (!roomName) return;
     axios
@@ -308,6 +433,20 @@ const InterviewRoom = () => {
       .then(() => setRoomStatus("valid"))
       .catch(() => setRoomStatus("invalid"));
   }, [roomName]);
+
+  useEffect(() => {
+    const storedUserStr = localStorage.getItem("user");
+    if (storedUserStr) {
+      try {
+        const storedUser = JSON.parse(storedUserStr);
+        if (storedUser.name || storedUser.email) {
+          setUserName(storedUser.name || storedUser.email.split("@")[0]);
+        }
+      } catch (e) {
+        console.error("Error parsing stored user:", e);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -324,14 +463,22 @@ const InterviewRoom = () => {
     setError(null);
 
     try {
+      const jwtToken = localStorage.getItem("token");
+      const headers: Record<string, string> = {};
+      if (jwtToken && jwtToken !== "null" && jwtToken !== "undefined") {
+        headers.Authorization = `Bearer ${jwtToken}`;
+      }
+
       const res = await axios.post(
         `${BACKEND_URL}/api/token`,
         {
           roomName,
           name: userName,
           password,
+          role: "INTERVIEWER",
           creator: false,
-        }
+        },
+        { headers }
       );
 
       socket.emit("joinMeeting", {
@@ -431,7 +578,7 @@ const InterviewRoom = () => {
       token={token}
       serverUrl={livekitUrl}
       onDisconnected={() => {
-        navigate(`/feedback/${encodeURIComponent(roomName || "")}`);
+        navigate("/gratification");
       }}
       data-lk-theme="default"
       className="livekit-container"

@@ -101,7 +101,6 @@ const Profile = () => {
       }
 
       setHasApiKey(Boolean(geminiApiKey.trim()));
-      setHasApiKey(Boolean(geminiApiKey.trim()));
 
       setHasLivekitCredentials(
         Boolean(livekitUrl.trim()) &&
@@ -109,7 +108,6 @@ const Profile = () => {
         Boolean(livekitApiSecret.trim())
       );
 
-      setMessage("Profile & API Key updated successfully!");
       setMessage("Profile & API Key updated successfully!");
     } catch (err: any) {
       console.error(err);
