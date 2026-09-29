@@ -1,10 +1,10 @@
 export const nextQuestionPrompt = (
   question,
-  evaluation,
+  evaluationOrTranscript,
   followUpCount = 0
 ) => {
-  // If no evaluation yet, return the initial interview prompt (opening questions)
-  if (evaluation === null) {
+  // If no evaluation or transcript yet, return opening questions prompt
+  if (evaluationOrTranscript === null || evaluationOrTranscript === undefined) {
     return `
 You are assisting a human interviewer.
 
@@ -19,7 +19,7 @@ Rules:
 4. Questions should naturally start the interview.
 5. Keep questions concise.
 6. Generate a fresh set of opening questions.
-7. Do not repeat the same question within the response.)(Important)
+7. Do not repeat the same question within the response.
 
 Return ONLY valid JSON.
 
@@ -46,15 +46,17 @@ Do not use markdown.
 `;
   }
 
-  // After evaluation: return suggestions based on current question and its evaluation
+  const contextData = typeof evaluationOrTranscript === "string"
+    ? `Candidate Answer Transcript:\n${evaluationOrTranscript}`
+    : `Evaluation Report:\n${JSON.stringify(evaluationOrTranscript)}`;
+
   return `
 You are assisting a human interviewer.
 
 Current Interview Question:
 ${question}
 
-Evaluation:
-${JSON.stringify(evaluation)}
+${contextData}
 
 Follow-up Questions Already Asked:
 ${followUpCount}
@@ -62,10 +64,10 @@ ${followUpCount}
 Generate exactly 3 interview question suggestions.
 
 Rules:
-1. If followUpCount < 2 and important concepts are missing, include ONE follow-up question.
+1. If followUpCount < 2, include ONE follow-up question related to the candidate's response.
 2. If followUpCount >= 2, DO NOT generate another follow-up. Move to the next logical topic.
 3. Remaining questions should be new questions that naturally continue the interview.
-4. Do not repeat the current question.(important)
+4. Do not repeat the current question.
 5. Keep questions concise.
 
 Return ONLY valid JSON.

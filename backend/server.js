@@ -19,7 +19,7 @@ import nextQuestionAgent from "./src/agents/NextQuestionAgent.js";
 import User from "./src/models/User.js";
 import { decrypt } from "./src/utils/cryptoUtils.js";
 
-const interviewSessions = new Map();
+// const deepgramConnections = new Map();
 const deepgramConnections = new Map();
 
 const answerBuffers = new Map();
@@ -61,7 +61,7 @@ io.on("connection", (socket) => {
       socket,
       roomName,
       role,
-      async ({ roomName, role, transcript }) => {
+      async ({ roomName, role, transcript, isUtteranceEnd, speechFinal }) => {
 
         await transcriptService.handleTranscript({
           io,
@@ -69,7 +69,8 @@ io.on("connection", (socket) => {
           role,
           transcript,
           userApiKey: socket.userApiKey || userApiKey,
-          interviewSessions,
+          isUtteranceEnd,
+          speechFinal,
         });
 
       }
@@ -100,12 +101,7 @@ io.on("connection", (socket) => {
     socket.join(roomName);
 
     // Ensure interview session exists before starting Deepgram to avoid race conditions
-    if (!interviewSessions.has(roomName)) {
-      interviewSessions.set(roomName, {
-        currentQuestion: null,
-        evaluations: []
-      });
-    }
+    interviewController.initSession(roomName);
 
     // Track user
     if (!activeUsers.has(roomName)) {
@@ -147,14 +143,9 @@ io.on("connection", (socket) => {
   });
   socket.on("interviewer:transcript", async ({ roomName, transcript }) => {
     const result =
-      await interviewController.processInterviewerSpeech(roomName, transcript);
+      await interviewController.processInterviewerSpeech(roomName, transcript, socket.userApiKey);
 
     if (result.type === "QUESTION") {
-      if (!interviewSessions.has(roomName)) {
-        interviewSessions.set(roomName, { currentQuestion: null, evaluations: [] });
-      }
-      interviewSessions.get(roomName).currentQuestion = result.question;
-
       io.to(roomName).emit("question:detected", result);
     }
   });
@@ -308,22 +299,9 @@ app.post("/interview/question", async (req, res) => {
   }
 });
 app.post("/interview/select-question", (req, res) => {
-  const { question } = req.body;
+  const { question, roomName = "default" } = req.body;
 
-  if (!interviewSessions.has("default")) {
-    interviewSessions.set("default", {
-      currentQuestion: null,
-      evaluations: [],
-      qaPairs: []
-    });
-  }
-
-  const session = interviewSessions.get("default");
-  if (!session.qaPairs) session.qaPairs = [];
-  session.qaPairs.push({
-    question,
-    answer: ""
-  });
+  interviewController.setCurrentQuestion(roomName, question);
 
   res.json({
     success: true
