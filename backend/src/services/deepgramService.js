@@ -6,8 +6,8 @@ export function createDeepgramConnection(socket, roomName, role, onTranscript) {
     if (!apiKey) {
       console.warn("DEEPGRAM_API_KEY is not set. Deepgram connection skipped.");
       return {
-        send: () => {},
-        finish: () => {},
+        send: () => { },
+        finish: () => { },
       };
     }
 
@@ -82,6 +82,7 @@ export function createDeepgramConnection(socket, roomName, role, onTranscript) {
       if (keepAliveInterval) clearInterval(keepAliveInterval);
     });
 
+
     connection.on("error", (err) => {
       console.error("Deepgram Socket Error:", err);
       if (keepAliveInterval) clearInterval(keepAliveInterval);
@@ -95,8 +96,8 @@ export function createDeepgramConnection(socket, roomName, role, onTranscript) {
   } catch (err) {
     console.error("Failed to initialize Deepgram connection:", err);
     return {
-      send: () => {},
-      finish: () => {},
+      send: () => { },
+      finish: () => { },
     };
   }
 }

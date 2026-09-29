@@ -261,11 +261,10 @@ const Interviewee = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [token, setToken] = useState<string | null>(null);
+  const [livekitUrl, setLivekitUrl] = useState("");
   const [error, setError] = useState("");
   const [isJoining, setIsJoining] = useState(false);
   const [roomStatus, setRoomStatus] = useState<"loading" | "valid" | "invalid">("loading");
-
-  const LIVEKIT_URL = import.meta.env.VITE_LIVEKIT_URL || "ws://localhost:7800";
 
   // Check room validity
   useEffect(() => {
@@ -342,6 +341,7 @@ const Interviewee = () => {
       });
 
       setToken(res.data.token);
+      setLivekitUrl(res.data.livekitUrl);
     } catch (err: any) {
       hasJoinedRef.current = false;
       setError(err.response?.data?.message || "Failed to join room. Please check password.");
@@ -435,7 +435,7 @@ const Interviewee = () => {
       video={true}
       audio={true}
       token={token}
-      serverUrl={LIVEKIT_URL}
+      serverUrl={livekitUrl}
       onDisconnected={() => navigate(`/feedback/${encodeURIComponent(roomName || "")}`)}
       data-lk-theme="default"
       className="livekit-container"

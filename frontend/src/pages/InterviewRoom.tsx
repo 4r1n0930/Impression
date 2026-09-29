@@ -419,13 +419,12 @@ const InterviewRoom = () => {
   const navigate = useNavigate();
 
   const [token, setToken] = useState<string | null>(null);
+  const [livekitUrl, setLivekitUrl] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [userName, setUserName] = useState("");
   const [password, setPassword] = useState("");
   const [isJoining, setIsJoining] = useState(false);
   const [roomStatus, setRoomStatus] = useState<"loading" | "valid" | "invalid">("loading");
-
-  const LIVEKIT_URL = import.meta.env.VITE_LIVEKIT_URL || "ws://localhost:7800";
 
   useEffect(() => {
     if (!roomName) return;
@@ -459,6 +458,7 @@ const InterviewRoom = () => {
 
   const handleJoin = async () => {
     if (!userName.trim() || !roomName) return;
+
     setIsJoining(true);
     setError(null);
 
@@ -480,16 +480,23 @@ const InterviewRoom = () => {
         },
         { headers }
       );
+
       socket.emit("joinMeeting", {
         roomName,
         userName: userName,
-        role: "interviewer"
+        role: "interviewer",
       });
 
       setToken(res.data.token);
+      setLivekitUrl(res.data.livekitUrl);
+
     } catch (err: any) {
-      const msg = err.response?.data?.message || "Failed to join room. You might not be authorized.";
+      const msg =
+        err.response?.data?.message ||
+        "Failed to join room. You might not be authorized.";
+
       setError(msg);
+
       if (msg.toLowerCase().includes("full")) {
         alert(msg);
         navigate("/");
@@ -569,7 +576,7 @@ const InterviewRoom = () => {
       video={true}
       audio={true}
       token={token}
-      serverUrl={LIVEKIT_URL}
+      serverUrl={livekitUrl}
       onDisconnected={() => {
         navigate("/gratification");
       }}
