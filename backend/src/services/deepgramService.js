@@ -22,6 +22,9 @@ export function createDeepgramConnection(socket, roomName, role, onTranscript) {
       encoding: "linear16",
       sample_rate: 16000,
       channels: 1,
+      utterance_end_ms: 1500,
+      vad_events: true,
+      endpointing: 300,
     });
 
     let keepAliveInterval;
@@ -40,21 +43,38 @@ export function createDeepgramConnection(socket, roomName, role, onTranscript) {
       const transcript =
         data.channel?.alternatives?.[0]?.transcript ?? "";
 
-      if (!transcript.trim()) return;
+      const speechFinal = Boolean(data.speech_final);
+
+      if (!transcript.trim() && !speechFinal) return;
 
       if (onTranscript) {
         onTranscript({
           roomName,
           role,
           transcript,
+          speechFinal,
         });
       }
 
-      socket.emit("transcript", {
-        roomName,
-        role,
-        transcript,
-      });
+      if (transcript.trim()) {
+        socket.emit("transcript", {
+          roomName,
+          role,
+          transcript,
+          speechFinal,
+        });
+      }
+    });
+
+    connection.on(LiveTranscriptionEvents.UtteranceEnd || "UtteranceEnd", () => {
+      if (onTranscript) {
+        onTranscript({
+          roomName,
+          role,
+          transcript: "",
+          isUtteranceEnd: true,
+        });
+      }
     });
 
     connection.on(LiveTranscriptionEvents.Error, (err) => {
