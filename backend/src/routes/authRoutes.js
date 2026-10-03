@@ -11,6 +11,7 @@ import protect from "../middleware/authMiddleware.js";
 
 import User from "../models/User.js";
 import { encrypt, decrypt } from "../utils/cryptoUtils.js";
+import { invalidateApiKey } from "../services/geminiKeyService.js";
 
 const router = express.Router();
 
@@ -418,7 +419,7 @@ router.put(
       const user = await User.findByIdAndUpdate(
         req.user.userId,
         { profilePhoto },
-        { new: true }
+        { returnDocument: 'after' }
       );
 
       res.json({
@@ -442,7 +443,7 @@ router.put("/update-name", protect, async (req, res) => {
     const user = await User.findByIdAndUpdate(
       req.user.userId,
       { name },
-      { new: true }
+      { returnDocument: 'after' }
     );
 
     res.json({
@@ -482,13 +483,16 @@ router.put("/update-api-key", protect, async (req, res) => {
     const user = await User.findByIdAndUpdate(
       req.user.userId,
       {
-        geminiApiKey: encryptedKey,
+        geminiApiKey: encryptedGeminiKey,
         livekitUrl: livekitUrl || "",
         livekitApiKey: encryptedLivekitApiKey,
         livekitApiSecret: encryptedLivekitApiSecret,
       },
-      { new: true }
+      { returnDocument: 'after' }
     );
+
+    // The resolved key is cached per user; drop it so the next call uses the new one.
+    invalidateApiKey(user._id);
 
     res.json({
       message: "API credentials updated successfully",

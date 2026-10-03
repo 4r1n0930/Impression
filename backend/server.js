@@ -15,15 +15,11 @@ import { GoogleGenAI } from "@google/genai";
 import interviewController from "./src/controller/InterviewController.js";
 import { createDeepgramConnection } from "./src/services/deepgramService.js";
 import transcriptService from "./src/services/transcriptService.js";
-import nextQuestionAgent from "./src/agents/NextQuestionAgent.js";
-import User from "./src/models/User.js";
-import { decrypt } from "./src/utils/cryptoUtils.js";
+import { verifyToken } from "./src/utils/auth.js";
+import { primeApiKey } from "./src/services/geminiKeyService.js";
 
 // const deepgramConnections = new Map();
 const deepgramConnections = new Map();
-
-const answerBuffers = new Map();
-const answerTimers = new Map();
 
 dotenv.config();
 const ai = new GoogleGenAI({
@@ -51,9 +47,28 @@ app.set("io", io);
 // Store active users in meetings
 const activeUsers = new Map(); // roomName -> [{ socketId, userName, email }]
 
+// Verify the JWT on the handshake so that socket.userId is derived server-side.
+// Without this, a client can claim any email and consume that user's Gemini key.
+io.use((socket, next) => {
+  const token = socket.handshake.auth?.token;
+
+  if (!token) {
+    return next(new Error("Authentication required"));
+  }
+
+  try {
+    const decoded = verifyToken(token);
+    socket.userId = decoded.userId;
+    socket.userEmail = decoded.email;
+    return next();
+  } catch (err) {
+    return next(new Error("Invalid or expired token"));
+  }
+});
+
 io.on("connection", (socket) => {
   console.log(" User Connected:", socket.id);
-  function connectDeepgram(roomName, role, userApiKey) {
+  function connectDeepgram(roomName, role, userId) {
     if (deepgramConnections.has(socket.id)) {
       return deepgramConnections.get(socket.id);
     }
@@ -68,7 +83,7 @@ io.on("connection", (socket) => {
           roomName,
           role,
           transcript,
-          userApiKey: socket.userApiKey || userApiKey,
+          userId: socket.userId || userId,
           isUtteranceEnd,
           speechFinal,
         });
@@ -82,26 +97,34 @@ io.on("connection", (socket) => {
   }
   // When user joins a meeting room
   socket.on("joinMeeting", async (data) => {
-    const { roomName, userName, email, role, geminiApiKey } = data;
+    const { roomName, userName, email, role } = data;
 
-    let userApiKey = geminiApiKey ? decrypt(geminiApiKey) : "";
-    if (!userApiKey && email) {
-      try {
-        const u = await User.findOne({ email });
-        if (u && u.geminiApiKey) {
-          userApiKey = decrypt(u.geminiApiKey);
-        }
-      } catch (e) {
-        console.error("Error fetching user geminiApiKey:", e);
-      }
+    // Identity comes from the verified handshake, never from client-supplied data.
+    const userId = socket.userId;
+
+    if (!userId) {
+      socket.emit("error", { message: "Authentication required to join a room." });
+      return;
     }
-    socket.userApiKey = userApiKey;
+
+    // Warm the API key cache once so grading does not hit the DB per answer.
+    await primeApiKey(userId);
 
     // Add user to room
     socket.join(roomName);
 
-    // Ensure interview session exists before starting Deepgram to avoid race conditions
-    interviewController.initSession(roomName);
+    // Pin room/role to the verified join. The lazy Deepgram reconnect below must
+    // not trust client-supplied values from "pcm-data".
+    socket.roomName = roomName;
+    socket.role = role;
+
+    // Ensure interview session exists before starting Deepgram to avoid race conditions.
+    // The session is owned by the interviewee, who is the one who reads the report.
+    const normalizedRole = String(role || "").toUpperCase();
+    interviewController.initSession(
+      roomName,
+      normalizedRole === "INTERVIEWEE" ? userId : null
+    );
 
     // Track user
     if (!activeUsers.has(roomName)) {
@@ -110,13 +133,13 @@ io.on("connection", (socket) => {
     const roomUsers = activeUsers.get(roomName);
     const existingIdx = roomUsers.findIndex(u => u.socketId === socket.id);
     if (existingIdx !== -1) {
-      roomUsers[existingIdx] = { socketId: socket.id, userName, email, geminiApiKey: userApiKey };
+      roomUsers[existingIdx] = { socketId: socket.id, userName, email };
     } else {
-      roomUsers.push({ socketId: socket.id, userName, email, geminiApiKey: userApiKey });
+      roomUsers.push({ socketId: socket.id, userName, email });
     }
 
     // Now connect to Deepgram (after session and user tracking is initialized)
-    connectDeepgram(roomName, role, userApiKey);
+    connectDeepgram(roomName, role, userId);
 
 
     // Get all users in this room
@@ -133,7 +156,7 @@ io.on("connection", (socket) => {
     // Send initial AI suggested questions for interviewer joining room
     if (role === "interviewer" || role === "INTERVIEWER") {
       try {
-        const initialSuggestions = await interviewController.refreshSuggestions(roomName, userApiKey);
+        const initialSuggestions = await interviewController.refreshSuggestions(roomName, userId);
         socket.emit("ai-suggested-questions", initialSuggestions);
       } catch (err) {
         console.error("Error generating initial AI suggestions on join:", err);
@@ -143,7 +166,7 @@ io.on("connection", (socket) => {
   });
   socket.on("interviewer:transcript", async ({ roomName, transcript }) => {
     const result =
-      await interviewController.processInterviewerSpeech(roomName, transcript, socket.userApiKey);
+      await interviewController.processInterviewerSpeech(roomName, transcript, socket.userId);
 
     if (result.type === "QUESTION") {
       io.to(roomName).emit("question:detected", result);
@@ -175,7 +198,11 @@ io.on("connection", (socket) => {
       let connection = deepgramConnections.get(socket.id);
 
       if (!connection) {
-        connection = connectDeepgram(data.roomName, data.role);
+        connection = connectDeepgram(
+          socket.roomName || data.roomName,
+          socket.role || data.role,
+          socket.userId
+        );
       }
 
       if (connection && typeof connection.send === "function") {
@@ -189,9 +216,11 @@ io.on("connection", (socket) => {
   });
   socket.on("refresh-suggestions", async ({ roomName }) => {
     try {
+      io.to(roomName).emit("ai-suggestions-pending", { roomName });
+
       const suggestions = await interviewController.refreshSuggestions(
         roomName,
-        socket.userApiKey
+        socket.userId
       );
       io.to(roomName).emit("ai-suggested-questions", suggestions);
     } catch (err) {
@@ -199,8 +228,11 @@ io.on("connection", (socket) => {
     }
   });
   // When user leaves meeting
-  socket.on("leaveMeeting", (data) => {
+  socket.on("leaveMeeting", async (data) => {
     const { roomName, userName } = data;
+
+    // Grade any answer still buffered before the audio stream is torn down.
+    await transcriptService.flushAllForRoom(roomName);
 
     if (activeUsers.has(roomName)) {
       const users = activeUsers.get(roomName);
@@ -234,10 +266,20 @@ io.on("connection", (socket) => {
     }
   });
 
-  socket.on("disconnect", () => {
+  socket.on("disconnect", async () => {
     console.log("User Disconnected:", socket.id);
 
     const connection = deepgramConnections.get(socket.id);
+
+    // Flush any room this socket was actually in, before finishing the stream,
+    // so a trailing answer is graded instead of discarded.
+    const roomsToFlush = [...activeUsers.entries()]
+      .filter(([, users]) => users.some((u) => u.socketId === socket.id))
+      .map(([roomName]) => roomName);
+
+    await Promise.all(
+      roomsToFlush.map((roomName) => transcriptService.flushAllForRoom(roomName))
+    );
 
     if (connection) {
       connection.finish();
@@ -273,7 +315,7 @@ app.use(express.json());
 app.post("/interview/question", async (req, res) => {
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-2.0-flash",
+      model: "gemini-3.1-flash",
       contents: `Generate exactly 3 interview questions for a java developer.
       Rules:
         - Return only questions

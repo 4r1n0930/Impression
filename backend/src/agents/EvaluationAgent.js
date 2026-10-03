@@ -1,16 +1,17 @@
 import { evaluationPrompt } from "./prompts/evaluationPrompt.js";
-import { getGeminiModel } from "../config/gemini.js";
+import { getGeminiModelForUser } from "../config/gemini.js";
+import { agentLog, agentError, elapsedMs } from "../utils/agentLogger.js";
 
 class EvaluationAgent {
-  async process(question, answer, userApiKey) {
-    console.log("Evaluation Agent Running...");
+  async process(question, answer, userId, roomName) {
+    const startedAt = Date.now();
 
     try {
       const prompt = evaluationPrompt(question, answer);
-      const model = getGeminiModel(userApiKey);
+      const model = await getGeminiModelForUser(userId);
 
       const result = await model.generateContent({
-        model: "gemini-flash-latest",
+        model: "gemini-3.5-flash-lite",
         contents: prompt,
       });
 
@@ -22,10 +23,25 @@ class EvaluationAgent {
         response = response.replace(/^```\s*/, "").replace(/```\s*$/, "").trim();
       }
 
-      return JSON.parse(response);
+      const evaluation = JSON.parse(response);
+
+      agentLog(
+        "EVALUATION",
+        roomName,
+        `graded ${evaluation?.score ?? "?"}/10 · ${question ? question.slice(0, 60) : "no question"} (${elapsedMs(startedAt)})`,
+        evaluation
+      );
+
+      return evaluation;
 
     } catch (error) {
-      console.error("Evaluation Agent Error:", error);
+      agentError("EVALUATION", roomName, "failed, returning fabricated default:", error);
+
+      agentLog(
+        "EVALUATION",
+        roomName,
+        `FALLBACK 7/10 · default scores, not a real evaluation (${elapsedMs(startedAt)})`
+      );
 
       return {
         score: 7,

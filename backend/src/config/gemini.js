@@ -1,18 +1,33 @@
 import { GoogleGenAI } from "@google/genai";
+import { resolveApiKey } from "../services/geminiKeyService.js";
 
-export function getGeminiModel(userApiKey) {
-  const apiKey = (userApiKey && userApiKey.trim()) || process.env.GEMINI_API_KEY;
-  if (!apiKey) {
+// apiKey -> ai.models. Reused across calls, since constructing a client per
+// request is pure overhead.
+const clientCache = new Map();
+
+/**
+ * Pure factory: takes an already-resolved key. Prefer getGeminiModelForUser()
+ * outside of tests, so that key resolution happens in exactly one place.
+ */
+export function getGeminiModel(apiKey) {
+  const key = (apiKey && String(apiKey).trim()) || (process.env.GEMINI_API_KEY || "").trim();
+
+  if (!key) {
     throw new Error("No Gemini API Key provided and GEMINI_API_KEY environment variable is not configured.");
   }
-  const ai = new GoogleGenAI({ apiKey });
-  return ai.models;
+
+  if (!clientCache.has(key)) {
+    clientCache.set(key, new GoogleGenAI({ apiKey: key }).models);
+  }
+
+  return clientCache.get(key);
 }
 
-const defaultApiKey = process.env.GEMINI_API_KEY || "fallback_key";
-const ai = new GoogleGenAI({
-  apiKey: defaultApiKey,
-});
-
-export const model = ai.models;
-
+/**
+ * The key does not exist as a plain string on the socket or in session data:
+ * it stays encrypted at rest and is decrypted on demand by geminiKeyService.
+ */
+export async function getGeminiModelForUser(userId) {
+  const apiKey = await resolveApiKey(userId);
+  return getGeminiModel(apiKey);
+}

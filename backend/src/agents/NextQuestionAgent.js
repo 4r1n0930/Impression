@@ -1,14 +1,17 @@
 import { nextQuestionPrompt } from "./prompts/nextQuestion.prompt.js";
-import { getGeminiModel } from "../config/gemini.js";
+import { getGeminiModelForUser } from "../config/gemini.js";
+import { agentLog, agentError, elapsedMs } from "../utils/agentLogger.js";
 
 class NextQuestionAgent {
-  async process(question, evaluation, followUpCount = 0, userApiKey) {
+  async process(question, evaluation, followUpCount = 0, userId, roomName) {
+    const startedAt = Date.now();
+
     try {
       const prompt = nextQuestionPrompt(question, evaluation, followUpCount);
-      const geminiModel = getGeminiModel(userApiKey);
+      const geminiModel = await getGeminiModelForUser(userId);
 
       const result = await geminiModel.generateContent({
-        model: "gemini-flash-latest",
+        model: "gemini-3.5-flash-lite",
         contents: prompt,
       });
 
@@ -26,10 +29,21 @@ class NextQuestionAgent {
           .trim();
       }
 
-      return JSON.parse(response);
+      const parsed = JSON.parse(response);
+
+      agentLog(
+        "NEXTQ",
+        roomName,
+        `${parsed?.questions?.length ?? 0} suggestions · followUpCount=${followUpCount} (${elapsedMs(startedAt)})`,
+        parsed
+      );
+
+      return parsed;
 
     } catch (error) {
-      console.error("Next Question Agent Error:", error);
+      agentError("NEXTQ", roomName, "failed, returning static suggestions:", error);
+
+      agentLog("NEXTQ", roomName, `FALLBACK · 3 static suggestions (${elapsedMs(startedAt)})`);
 
       return {
         questions: [

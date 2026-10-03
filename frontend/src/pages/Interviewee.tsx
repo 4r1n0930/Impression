@@ -18,7 +18,9 @@ import "../style/Interviewee.css";
 import AudioCapture from "../audio/AudioCapture";
 import { Mic, MicOff, Video, VideoOff, Monitor, MessageSquare, PhoneOff, Users, Copy, Check, HelpCircle } from "lucide-react";
 
-const socket: Socket = io(BACKEND_URL);
+const socket: Socket = io(BACKEND_URL, {
+  auth: { token: localStorage.getItem("token") },
+});
 
 const IntervieweeLayout = ({ roomName, name }: { roomName: string; name: string }) => {
   const navigate = useNavigate();

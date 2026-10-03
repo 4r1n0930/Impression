@@ -16,6 +16,10 @@ Evaluate on the following:
 3. Communication Clarity (0-10)
 4. Confidence (0-10)
 
+Notes:
+- The candidate answer below may contain follow-up responses separated by blank lines. Treat them as parts of one continuous answer to this question and evaluate the answer as a whole.
+- Judge completeness across all the parts together. Do not penalise the candidate for an answer that was simply cut short by a follow-up question.
+
 Also provide:
 
 - Overall Score (0-10)
