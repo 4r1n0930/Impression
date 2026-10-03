@@ -17,7 +17,9 @@ import { io, Socket } from "socket.io-client";
 import AudioCapture from "../audio/AudioCapture";
 import { Mic, MicOff, Video, VideoOff, Monitor, MessageSquare, PhoneOff, Users, Copy, Sparkles, RefreshCw, Check, X } from "lucide-react";
 
-const socket: Socket = io(BACKEND_URL);
+const socket: Socket = io(BACKEND_URL, {
+  auth: { token: localStorage.getItem("token") },
+});
 
 interface SuggestedQuestionItem {
   type?: string;
@@ -121,15 +123,25 @@ const InterviewerLayout = ({ roomName, name }: { roomName: string; name: string 
   }, [localParticipant, isMicrophoneEnabled, roomName, name]);
 
   useEffect(() => {
+    // The backend signals it is about to prompt the next-question agent, so the
+    // panel clears itself instead of swapping content abruptly.
+    const handlePending = () => {
+      setSuggestedQuestions([]);
+      setIsLoadingSuggestions(true);
+    };
+
+    socket.on("ai-suggestions-pending", handlePending);
+
     socket.on("ai-suggested-questions", (data) => {
       const parsed = parseSuggestedQuestions(data);
-      if (parsed.length > 0) {
-        setSuggestedQuestions(parsed);
-      }
+      // Always replace, even with an empty list: keeping stale suggestions after
+      // a failed regeneration makes them look current.
+      setSuggestedQuestions(parsed);
       setIsLoadingSuggestions(false);
     });
 
     return () => {
+      socket.off("ai-suggestions-pending", handlePending);
       socket.off("ai-suggested-questions");
     };
   }, []);
@@ -320,9 +332,23 @@ const InterviewerLayout = ({ roomName, name }: { roomName: string; name: string 
                 </div>
 
                 <div className="questions-container">
-                  {suggestedQuestions.length === 0 ? (
+                  {isLoadingSuggestions ? (
+                    <div className="suggestions-loading-state">
+                      <div className="loading-header">
+                        <RefreshCw size={14} className="animate-spin" />
+                        <span>Generating question suggestions...</span>
+                      </div>
+                      {[0, 1, 2].map((i) => (
+                        <div key={i} className="question-card skeleton-card">
+                          <div className="skeleton-line skeleton-badge" />
+                          <div className="skeleton-line skeleton-text" />
+                          <div className="skeleton-line skeleton-text short" />
+                        </div>
+                      ))}
+                    </div>
+                  ) : suggestedQuestions.length === 0 ? (
                     <div className="empty-questions-state">
-                      {isLoadingSuggestions ? "Generating question suggestions..." : "No suggestions available yet. Wait for interviewee responses or click refresh below."}
+                      No suggestions available yet. Wait for interviewee responses or click refresh below.
                     </div>
                   ) : (
                     suggestedQuestions.map((item, index) => (

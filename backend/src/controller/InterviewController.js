@@ -4,7 +4,12 @@ import nextQuestionAgent from "../agents/NextQuestionAgent.js";
 
 class InterviewController {
   constructor() {
-    // roomName -> session object { currentQuestion: string|null, evaluations: Array, followUpCount: number }
+    // roomName -> session object {
+    //   currentQuestion: { text, category, evaluable } | null,
+    //   evaluations: Array,
+    //   followUpCount: number,
+    //   userId: string | null
+    // }
     this.sessions = new Map();
   }
 
@@ -14,18 +19,28 @@ class InterviewController {
         currentQuestion: null,
         evaluations: [],
         followUpCount: 0,
+        userId: null,
       });
     }
     return this.sessions.get(roomName);
   }
 
-  initSession(roomName) {
-    return this.getSession(roomName);
+  initSession(roomName, userId = null) {
+    const session = this.getSession(roomName);
+    if (userId) session.userId = String(userId);
+    return session;
   }
 
-  setCurrentQuestion(roomName, question) {
+  /**
+   * Only evaluable questions are stored. Non-evaluable interviewer speech
+   * deliberately does NOT clear the active question, so a brief interjection
+   * ("mm-hmm", "take your time") during the candidate's grace window cannot
+   * wipe a question that is about to be answered.
+   */
+  setCurrentQuestion(roomName, question, category = "technical", evaluable = true) {
     const session = this.getSession(roomName);
-    session.currentQuestion = question;
+    session.currentQuestion = { text: question, category, evaluable: Boolean(evaluable) };
+    return session.currentQuestion;
   }
 
   getCurrentQuestion(roomName) {
@@ -39,22 +54,28 @@ class InterviewController {
   }
 
   // Interviewer ka speech aayega
-  async processInterviewerSpeech(roomName, transcript, userApiKey) {
+  async processInterviewerSpeech(roomName, transcript, userId) {
 
-    const result = await questionAgent.process(roomName, transcript, userApiKey);
+    const result = await questionAgent.process(roomName, transcript, userId);
 
     if (result.success && result.isQuestion) {
-      this.setCurrentQuestion(roomName, result.question);
-
-      console.log(
-        `Current Question [${roomName}]:`,
-        result.question
-      );
+      // Only a real interview question becomes the active one. Small talk and
+      // logistics leave the previous question in place.
+      if (result.isEvaluable) {
+        this.setCurrentQuestion(
+          roomName,
+          result.question,
+          result.category,
+          true
+        );
+      }
 
       return {
         type: "QUESTION",
         roomName,
         question: result.question,
+        category: result.category,
+        isEvaluable: result.isEvaluable,
       };
     }
 
@@ -64,40 +85,100 @@ class InterviewController {
     };
   }
 
-  // Interviewee ka answer aayega
-  async processIntervieweeSpeech(roomName, transcript, userApiKey) {
-    const question = this.getCurrentQuestion(roomName);
+  // Interviewee ka answer aayega -> grade it (called on the longer eval grace)
+  async evaluateIntervieweeAnswer(roomName, transcript, userId) {
+    const active = this.getCurrentQuestion(roomName);
+    const question = active?.text ?? null;
 
-    if (!question) {
+    const session = this.getSession(roomName);
+
+    // Gate: only grade when the active question is a real interview question.
+    if (!active?.evaluable) {
+      const reason = !active
+        ? "no active question"
+        : `active question category is "${active.category}"`;
+
+      // Not stored: a null evaluation would be rendered by the report route as
+      // a fabricated 7/10.
       return {
-        error: "No active question found.",
+        evaluation: null,
+        evaluationSkipped: true,
+        skipReason: reason,
       };
     }
 
-    const session = this.getSession(roomName);
-    const updatedFollowUpCount = session.followUpCount + 1;
+    const entry = this.upsertAnswer(session, question, transcript, active.category);
 
-    // Parallelize evaluation and next question generation using Promise.all()
-    // Cuts UI latency from sequential waterfall (~5-6s) down to ~2.5s
-    const [evaluation, nextQuestions] = await Promise.all([
-      evaluationAgent.process(question, transcript, userApiKey),
-      nextQuestionAgent.process(question, transcript, updatedFollowUpCount, userApiKey),
-    ]);
-
-    session.evaluations.push({
+    // Re-grade the joined answers so the group reflects everything said so far.
+    const evaluation = await evaluationAgent.process(
       question,
-      answer: transcript,
-      evaluation,
-    });
-    session.followUpCount = updatedFollowUpCount;
+      entry.answers.join("\n\n"),
+      userId,
+      roomName
+    );
+
+    entry.evaluation = evaluation;
+    session.followUpCount += 1;
 
     return {
       evaluation,
-      nextQuestions,
+      evaluationSkipped: false,
+      answerCount: entry.answers.length,
     };
   }
 
-  async refreshSuggestions(roomName, userApiKey) {
+  // Suggestions only (called on the shorter nextq grace, before evaluation).
+  async generateSuggestions(roomName, transcript, userId) {
+    const active = this.getCurrentQuestion(roomName);
+    const session = this.getSession(roomName);
+
+    return await nextQuestionAgent.process(
+      active?.text ?? null,
+      transcript,
+      session.followUpCount,
+      userId,
+      roomName
+    );
+  }
+
+  /**
+   * Canonical key for grouping repeat questions. Lowercases, strips punctuation,
+   * collapses whitespace and drops conversational lead-ins so that
+   * "So, explain closures?" and "explain closures" land in the same group.
+   */
+  questionKey(question) {
+    return String(question || "")
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, " ")
+      .replace(/\b(so|okay|ok|now|and|alright|right|well|um|uh|great|good)\b/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  upsertAnswer(session, question, answer, category) {
+    const key = this.questionKey(question);
+
+    let entry = session.evaluations.find((item) => item.key === key);
+
+    if (!entry) {
+      entry = {
+        question,
+        category,
+        key,
+        answers: [],
+        evaluation: null,
+        answerCount: 0,
+      };
+      session.evaluations.push(entry);
+    }
+
+    entry.answers.push(answer);
+    entry.answerCount = entry.answers.length;
+
+    return entry;
+  }
+
+  async refreshSuggestions(roomName, userId) {
     const session = this.getSession(roomName);
     const history = session.evaluations;
 
@@ -106,23 +187,36 @@ class InterviewController {
         null,
         null,
         0,
-        userApiKey
+        userId,
+        roomName
       );
     }
 
     const latest = history[history.length - 1];
 
+    // A manual refresh can land between the nextq and eval stages, in which case
+    // the group exists but has not been graded yet. Fall back to the raw answers
+    // so the prompt still receives usable context.
+    const context = latest.evaluation ?? latest.answers.join("\n\n");
+
     return await nextQuestionAgent.process(
       latest.question,
-      latest.evaluation,
+      context,
       session.followUpCount,
-      userApiKey
+      userId,
+      roomName
     );
   }
 
   // Interview khatam hone par
   getInterviewData(roomName) {
     return this.getEvaluations(roomName);
+  }
+
+  // The userId that owns this room's report (the interviewee), or null.
+  getInterviewOwner(roomName) {
+    const session = this.sessions.get(roomName);
+    return session?.userId || null;
   }
 
   // Memory cleanup

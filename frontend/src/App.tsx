@@ -67,8 +67,22 @@ const App: React.FC = () => {
               </ProtectedRoute>
             } 
           />
-          <Route path="/feedback" element={<Feedback />} />
-          <Route path="/feedback/:roomName" element={<Feedback />} />
+          <Route 
+            path="/feedback" 
+            element={
+              <ProtectedRoute>
+                <Feedback />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/feedback/:roomName" 
+            element={
+              <ProtectedRoute>
+                <Feedback />
+              </ProtectedRoute>
+            } 
+          />
           <Route path="/gratification" element={<Gratification />} />
           
           {/* Catch-all route redirects to landing page */}

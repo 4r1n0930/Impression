@@ -46,6 +46,10 @@ Do not use markdown.
 `;
   }
 
+  const questionText = question
+    ? question
+    : "(no active question — the candidate was making small talk or the interview has not started)";
+
   const contextData = typeof evaluationOrTranscript === "string"
     ? `Candidate Answer Transcript:\n${evaluationOrTranscript}`
     : `Evaluation Report:\n${JSON.stringify(evaluationOrTranscript)}`;
@@ -54,7 +58,7 @@ Do not use markdown.
 You are assisting a human interviewer.
 
 Current Interview Question:
-${question}
+${questionText}
 
 ${contextData}
 

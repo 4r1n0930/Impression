@@ -139,11 +139,22 @@
   margin-bottom: 28px;
 }
 
+.followup-badge {
+  font-size: 11px;
+  font-weight: 600;
+  color: #a5b4fc;
+  background: rgba(99, 102, 241, 0.16);
+  border: 1px solid rgba(99, 102, 241, 0.36);
+  padding: 3px 9px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
 .score-ring {
   width: 110px;
   height: 110px;
   border-radius: 50%;
-  background: conic-gradient(#ffffff 0% 88%, #27272a 88% 100%);
+  background: conic-gradient(#ffffff 0% var(--score-pct, 0%), #27272a var(--score-pct, 0%) 100%);
   display: flex;
   flex-direction: column;
   align-items: center;

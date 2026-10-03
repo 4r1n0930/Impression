@@ -1,9 +1,11 @@
 import { feedbackPrompt } from "./prompts/feedback.prompt.js";
-import { getGeminiModel } from "../config/gemini.js";
+import { getGeminiModelForUser } from "../config/gemini.js";
+import { agentLog, agentError, elapsedMs } from "../utils/agentLogger.js";
 
 class FeedbackAgent {
-  async process(evaluations, userApiKey) {
+  async process(evaluations, userId, roomName) {
     if (!evaluations || evaluations.length === 0) {
+      agentLog("FEEDBACK", roomName, "no evaluations recorded · no report generated");
       return {
         overallScore: 0,
         verdict: "No Data Available",
@@ -17,12 +19,14 @@ class FeedbackAgent {
       };
     }
 
+    const startedAt = Date.now();
+
     try {
       const prompt = feedbackPrompt(evaluations);
-      const model = getGeminiModel(userApiKey);
+      const model = await getGeminiModelForUser(userId);
 
       const result = await model.generateContent({
-        model: "gemini-flash-latest",
+        model: "gemini-3.5-flash-lite",
         contents: prompt,
       });
 
@@ -34,9 +38,18 @@ class FeedbackAgent {
         response = response.replace(/^```\s*/, "").replace(/```\s*$/, "").trim();
       }
 
-      return JSON.parse(response);
+      const parsed = JSON.parse(response);
+
+      agentLog(
+        "FEEDBACK",
+        roomName,
+        `${JSON.stringify(parsed?.verdict)} · ${evaluations.length} answers · ${parsed?.overallScore ?? "?"}/10 (${elapsedMs(startedAt)})`,
+        parsed
+      );
+
+      return parsed;
     } catch (error) {
-      console.error("Feedback Agent Error:", error);
+      agentError("FEEDBACK", roomName, "failed, returning arithmetic average:", error);
 
       const count = evaluations.length;
       let sumScore = 0, sumTech = 0, sumComp = 0, sumComm = 0, sumConf = 0;
@@ -56,6 +69,14 @@ class FeedbackAgent {
       const avgComm = Number((sumComm / count).toFixed(1));
       const avgConf = Number((sumConf / count).toFixed(1));
 
+      const summary = `Evaluated ${count} technical questions. Candidate scored an average of ${avgScore}/10 across technical accuracy, completeness, and clarity.`;
+
+      agentLog(
+        "FEEDBACK",
+        roomName,
+        `FALLBACK AVG ${avgScore}/10 · arithmetic mean of ${count} evaluations, not an AI verdict`
+      );
+
       return {
         overallScore: avgScore,
         verdict: avgScore >= 8 ? "Strong Candidate" : avgScore >= 6 ? "Potential Fit" : "Needs Improvement",
@@ -65,7 +86,7 @@ class FeedbackAgent {
           communicationClarity: avgComm,
           confidence: avgConf
         },
-        summary: `Evaluated ${count} technical questions. Candidate scored an average of ${avgScore}/10 across technical accuracy, completeness, and clarity.`
+        summary
       };
     }
   }

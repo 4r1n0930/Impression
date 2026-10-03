@@ -1,29 +1,68 @@
 import express from "express";
 import { GoogleGenAI } from "@google/genai";
 import InterviewQuestion from "../models/InterviewQuestion.js";
+import Room from "../models/Room.js";
+import { auth } from "../middleware/auth.js";
 import interviewController from "../controller/InterviewController.js";
 import feedbackAgent from "../agents/FeedbackAgent.js";
 
 const router = express.Router();
 
-router.get("/feedback/:roomName", async (req, res) => {
+/**
+ * Resolves who owns a room's report.
+ *
+ * The interviewee owns the session, so that is the primary source. The room
+ * creator is used as a fallback for when the session was cleared before the
+ * report was requested.
+ */
+async function resolveReportOwner(roomName) {
+  const sessionUserId = interviewController.getInterviewOwner(roomName);
+  if (sessionUserId) return sessionUserId;
+
+  const room = await Room.findOne({ name: roomName }).select("creator").lean();
+  return room?.creator ? String(room.creator) : null;
+}
+
+router.get("/feedback/:roomName", auth, async (req, res) => {
   try {
     const { roomName } = req.params;
-    const userApiKey = req.query.apiKey || "";
+
+    const ownerId = await resolveReportOwner(roomName);
+
+    if (!ownerId) {
+      return res.status(404).json({
+        success: false,
+        message: "No interview session found for this room.",
+      });
+    }
+
+    if (String(req.user._id) !== ownerId) {
+      return res.status(403).json({
+        success: false,
+        message: "You are not allowed to view this interview report.",
+      });
+    }
 
     // 1. Retrieve live in-memory evaluations stored in InterviewController
     const liveEvaluations = interviewController.getInterviewData(roomName);
 
     // 2. Generate overall assessment using FeedbackAgent
-    const overallFeedback = await feedbackAgent.process(liveEvaluations, userApiKey);
+    const overallFeedback = await feedbackAgent.process(liveEvaluations, req.user._id, roomName);
 
-    // 3. Format question-wise evaluation items for the frontend
+    // 3. Format question-wise evaluation items for the frontend.
+    // One entry per unique question; repeat questions share a group whose
+    // answers[] are follow-ups to that same question.
     const questions = liveEvaluations.map((item, idx) => {
       const ev = item.evaluation || {};
+      const answers = Array.isArray(item.answers) ? item.answers : [item.answer].filter(Boolean);
+
       return {
         id: idx + 1,
         question: item.question || `Question ${idx + 1}`,
-        answer: item.answer || "No candidate answer recorded.",
+        answer: answers.join("\n\n") || "No candidate answer recorded.",
+        answers,
+        answerCount: answers.length,
+        category: item.category || "technical",
         score: ev.score ?? 7,
         technicalAccuracy: ev.technicalAccuracy ?? 7,
         completeness: ev.completeness ?? 7,

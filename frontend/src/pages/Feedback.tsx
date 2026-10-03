@@ -26,6 +26,9 @@ interface QuestionFeedback {
   id: number;
   question: string;
   answer: string;
+  answers?: string[];
+  answerCount?: number;
+  category?: string;
   score: number;
   technicalAccuracy: number;
   completeness: number;
@@ -52,121 +55,106 @@ interface FeedbackReportData {
   verdict: string;
   metrics: OverallMetrics;
   summary: string;
+  hasLiveData?: boolean;
   questions: QuestionFeedback[];
 }
 
-const DUMMY_FEEDBACK_DATA: FeedbackReportData = {
-  roomName: "Java-Backend-Senior-Role",
-  candidateName: "Candidate",
-  interviewDate: new Date().toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  }),
-  durationMinutes: 28,
-  overallScore: 8.8,
-  verdict: "Strong Candidate",
-  metrics: {
-    technicalAccuracy: 9.0,
-    completeness: 8.5,
-    communicationClarity: 8.8,
-    confidence: 8.7,
-  },
-  summary: "Demonstrated strong core knowledge of Java concurrency, memory management, and data structures. Clear articulation of trade-offs and performance characteristics.",
-  questions: [
-    {
-      id: 1,
-      question: "How does HashMap work internally in Java 8+, and how are hash collisions handled?",
-      answer: "HashMap uses an array of bucket nodes. It computes hash code of the key and uses bitwise AND operation to locate the index. In case of collisions, elements are stored in a linked list. In Java 8, when a bucket list exceeds 8 items and array capacity is at least 64, it automatically converts from a linked list to a Red-Black Tree for O(log n) lookup performance.",
-      score: 9.5,
-      technicalAccuracy: 9.8,
-      completeness: 9.0,
-      communicationClarity: 9.5,
-      confidence: 9.2,
-      strengths: [
-        "Accurately described bucket index calculation and hashing mechanism.",
-        "Highlighted the Java 8 Treeification threshold (8 elements) and tree-bin conversion rule.",
-        "Correctly stated O(log n) time complexity improvement for collision lookup."
-      ],
-      weaknesses: [
-        "Did not mention default load factor (0.75) triggering array resize."
-      ],
-      missingConcepts: ["Load Factor & Capacity Resizing (Rehashing)"]
-    },
-    {
-      id: 2,
-      question: "What is the key difference between ConcurrentHashMap and SynchronizedMap?",
-      answer: "SynchronizedMap locks the entire map instance on every read/write operation using synchronized blocks. ConcurrentHashMap provides fine-grained thread safety without locking the full table — using CAS (Compare-And-Swap) operations for bucket insertion and locking individual bucket head nodes (synchronized on bucket head) in Java 8.",
-      score: 9.0,
-      technicalAccuracy: 9.2,
-      completeness: 8.8,
-      communicationClarity: 9.0,
-      confidence: 9.0,
-      strengths: [
-        "Great distinction between coarse-grained object-level locks vs fine-grained bucket locks.",
-        "Correctly pointed out Lock-free CAS operations used in ConcurrentHashMap."
-      ],
-      weaknesses: [
-        "Skipped historical segment-locking mechanism prior to Java 8."
-      ],
-      missingConcepts: ["Segment-Level Locks (Historical Context)"]
-    },
-    {
-      id: 3,
-      question: "Can you explain how Garbage Collection works in Java and how G1 Collector differs from ZGC?",
-      answer: "Garbage Collection automatically frees unreferenced heap memory. Memory is divided into Young (Eden, Survivor) and Tenured (Old) generations. G1 collector breaks memory into equal-sized regions and targets garbage-first regions. ZGC is an ultra low-latency collector using colored pointers and load barriers to keep pauses under 1 millisecond.",
-      score: 8.2,
-      technicalAccuracy: 8.5,
-      completeness: 7.8,
-      communicationClarity: 8.2,
-      confidence: 8.1,
-      strengths: [
-        "Accurately identified region-based memory partitioning in G1 GC.",
-        "Correctly identified ZGC pause time guarantees (<1ms) and colored pointer concept."
-      ],
-      weaknesses: [
-        "Briefly skipped explaining the Mark-Sweep-Compact phase lifecycle details."
-      ],
-      missingConcepts: ["Mark-Sweep-Compact Phase Lifecycle"]
-    }
-  ]
-};
+type ReportErrorKind = "auth" | "forbidden" | "missing" | "server";
+
+interface ReportError {
+  kind: ReportErrorKind;
+  message: string;
+}
+
+/** Converts an overall score out of 10 into a 0-100 percentage for the score ring. */
+function scoreRingPct(score: unknown): number {
+  const value = Number(score);
+  if (!Number.isFinite(value)) return 0;
+  return Math.min(100, Math.max(0, value * 10));
+}
 
 const Feedback: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { roomName: paramRoomName } = useParams();
 
-  const roomName = paramRoomName || searchParams.get("roomName") || DUMMY_FEEDBACK_DATA.roomName;
+  const roomName = paramRoomName || searchParams.get("roomName") || "";
   const [reportData, setReportData] = useState<FeedbackReportData | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<ReportError | null>(null);
+  const [reloadNonce, setReloadNonce] = useState<number>(0);
   const [expandedQuestion, setExpandedQuestion] = useState<number | null>(1);
 
   useEffect(() => {
     let isMounted = true;
+
+    setReportData(null);
+    setError(null);
     setLoading(true);
 
+    if (!roomName) {
+      setError({
+        kind: "missing",
+        message: "No interview room was specified for this report.",
+      });
+      setLoading(false);
+      return;
+    }
+
+    const token = localStorage.getItem("token");
+
     axios
-      .get(`${BACKEND_URL}/interview/feedback/${encodeURIComponent(roomName)}`)
+      .get(`${BACKEND_URL}/interview/feedback/${encodeURIComponent(roomName)}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      })
       .then((res) => {
         if (!isMounted) return;
-        if (res.data && res.data.success && res.data.questions && res.data.questions.length > 0) {
-          setReportData(res.data);
+
+        const data = res.data;
+
+        if (data && data.success && Array.isArray(data.questions)) {
+          setReportData(data);
         } else {
-          // If no live in-memory questions exist yet for this room name, use sample report data
-          setReportData({
-            ...DUMMY_FEEDBACK_DATA,
-            roomName: roomName || DUMMY_FEEDBACK_DATA.roomName,
+          setError({
+            kind: "server",
+            message:
+              data?.message || "The server returned an unexpected report payload.",
           });
         }
       })
       .catch((err) => {
         console.error("Error loading interview feedback report:", err);
         if (!isMounted) return;
-        setReportData({
-          ...DUMMY_FEEDBACK_DATA,
-          roomName: roomName || DUMMY_FEEDBACK_DATA.roomName,
-        });
+
+        const status = err?.response?.status;
+        const serverMessage = err?.response?.data?.message;
+
+        if (status === 401) {
+          setError({
+            kind: "auth",
+            message: "Your session has expired. Please sign in again.",
+          });
+        } else if (status === 403) {
+          setError({
+            kind: "forbidden",
+            message:
+              serverMessage || "You do not have access to this interview report.",
+          });
+        } else if (status === 404) {
+          setError({
+            kind: "missing",
+            message:
+              serverMessage ||
+              "This interview has no recorded session. Reports are only available while the server is running and before the room is cleared.",
+          });
+        } else {
+          setError({
+            kind: "server",
+            message:
+              serverMessage ||
+              "Could not load the report. Please check your connection and try again.",
+          });
+        }
       })
       .finally(() => {
         if (isMounted) setLoading(false);
@@ -175,7 +163,7 @@ const Feedback: React.FC = () => {
     return () => {
       isMounted = false;
     };
-  }, [roomName]);
+  }, [roomName, reloadNonce]);
 
   const toggleQuestion = (id: number) => {
     setExpandedQuestion(expandedQuestion === id ? null : id);
@@ -185,13 +173,85 @@ const Feedback: React.FC = () => {
     window.print();
   };
 
-  if (loading || !reportData) {
+  if (loading) {
     return (
       <div className="feedback-container" style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
         <div style={{ textAlign: "center", color: "#ffffff" }}>
           <RefreshCw size={36} className="animate-spin" style={{ color: "#60a5fa", margin: "0 auto 16px" }} />
           <h2>Generating Interview Performance Report...</h2>
           <p style={{ color: "#94a3b8", fontSize: "14px" }}>Analyzing live question evaluations and overall candidate metrics</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    const isAuthIssue = error.kind === "auth";
+
+    return (
+      <div className="feedback-container" style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ textAlign: "center", color: "#ffffff", maxWidth: "480px" }}>
+          <AlertCircle size={40} style={{ color: "#f87171", margin: "0 auto 16px" }} />
+          <h2 style={{ marginBottom: "8px" }}>
+            {isAuthIssue ? "Not Signed In" : "Report Unavailable"}
+          </h2>
+          <p style={{ color: "#94a3b8", fontSize: "14px", marginBottom: "24px" }}>
+            {error.message}
+          </p>
+          <div style={{ display: "flex", gap: "12px", justifyContent: "center" }}>
+            {isAuthIssue ? (
+              <button className="btn-primary" onClick={() => navigate("/")}>
+                <ArrowLeft size={16} />
+                <span>Go to Sign In</span>
+              </button>
+            ) : (
+              <>
+                <button
+                  className="btn-secondary"
+                  onClick={() => setReloadNonce((n) => n + 1)}
+                >
+                  <RotateCcw size={16} />
+                  <span>Try Again</span>
+                </button>
+                <button className="btn-primary" onClick={() => navigate("/dashboard")}>
+                  <ArrowLeft size={16} />
+                  <span>Dashboard</span>
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!reportData) {
+    return null;
+  }
+
+  if (!reportData.questions || reportData.questions.length === 0) {
+    return (
+      <div className="feedback-container" style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ textAlign: "center", color: "#ffffff", maxWidth: "480px" }}>
+          <MessageSquare size={40} style={{ color: "#60a5fa", margin: "0 auto 16px" }} />
+          <h2 style={{ marginBottom: "8px" }}>No Answers Recorded</h2>
+          <p style={{ color: "#94a3b8", fontSize: "14px", marginBottom: "24px" }}>
+            This interview session is active, but no answers have been graded yet.
+            Reports become available once you have answered at least one question.
+          </p>
+          <div style={{ display: "flex", gap: "12px", justifyContent: "center" }}>
+            <button
+              className="btn-secondary"
+              onClick={() => setReloadNonce((n) => n + 1)}
+            >
+              <RotateCcw size={16} />
+              <span>Refresh</span>
+            </button>
+            <button className="btn-primary" onClick={() => navigate("/dashboard")}>
+              <ArrowLeft size={16} />
+              <span>Dashboard</span>
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -227,7 +287,10 @@ const Feedback: React.FC = () => {
         {/* Hero Score Card */}
         <div className="hero-score-card">
           <div className="score-badge-group">
-            <div className="score-ring">
+            <div
+              className="score-ring"
+              style={{ "--score-pct": `${scoreRingPct(reportData.overallScore)}%` } as React.CSSProperties}
+            >
               <span className="score-number">{reportData.overallScore}</span>
               <span className="score-max">/10</span>
             </div>
@@ -343,6 +406,11 @@ const Feedback: React.FC = () => {
                       <h4 className="q-text">{q.question}</h4>
                     </div>
                     <div className="qa-title-right">
+                      {(q.answerCount ?? 1) > 1 && (
+                        <span className="followup-badge" title="Follow-up answers grouped under this question">
+                          +{(q.answerCount ?? 1) - 1} follow-up
+                        </span>
+                      )}
                       <span className="q-score-badge">{q.score} / 10</span>
                       {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
                     </div>
