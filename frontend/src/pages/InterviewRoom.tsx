@@ -13,9 +13,19 @@ import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { BACKEND_URL } from "../config";
 import "../style/InterviewRoom.css";
-import { io, Socket } from "socket.io-client";
+import { io, type Socket } from "socket.io-client";
 import AudioCapture from "../audio/AudioCapture";
-import { Mic, MicOff, Video, VideoOff, Monitor, MessageSquare, PhoneOff, Users, Copy, Sparkles, RefreshCw, Check, X } from "lucide-react";
+import { Users, Copy, Sparkles, RefreshCw, Check, X } from "lucide-react";
+import GradientMenu, { type ControlItem } from "../components/GradientMenu";
+import {
+  IoMicOutline,
+  IoMicOffOutline,
+  IoVideocamOutline,
+  IoVideocamOffOutline,
+  IoDesktopOutline,
+  IoChatbubbleEllipsesOutline,
+  IoCallOutline,
+} from "react-icons/io5";
 
 const socket: Socket = io(BACKEND_URL, {
   auth: { token: localStorage.getItem("token") },
@@ -67,6 +77,7 @@ const InterviewerLayout = ({ roomName, name }: { roomName: string; name: string 
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState<boolean>(false);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [showAiDrawer, setShowAiDrawer] = useState<boolean>(false);
+  const [showChat, setShowChat] = useState<boolean>(false);
 
   useEffect(() => {
     const startPCM = async () => {
@@ -224,6 +235,53 @@ const InterviewerLayout = ({ roomName, name }: { roomName: string; name: string 
     setTimeout(() => setCopiedLink(false), 2000);
   };
 
+  const controlItems: ControlItem[] = [
+    {
+      id: "mic",
+      title: isMicrophoneEnabled ? "Mute" : "Unmute",
+      icon: isMicrophoneEnabled ? <IoMicOutline /> : <IoMicOffOutline />,
+      gradientFrom: "#a955ff",
+      gradientTo: "#ea51ff",
+      isOff: !isMicrophoneEnabled,
+      onClick: toggleMic,
+    },
+    {
+      id: "video",
+      title: isCameraEnabled ? "Camera Off" : "Camera On",
+      icon: isCameraEnabled ? <IoVideocamOutline /> : <IoVideocamOffOutline />,
+      gradientFrom: "#56CCF2",
+      gradientTo: "#2F80ED",
+      isOff: !isCameraEnabled,
+      onClick: toggleCam,
+    },
+    {
+      id: "screen",
+      title: "Share Screen",
+      icon: <IoDesktopOutline />,
+      gradientFrom: "#80FF72",
+      gradientTo: "#7EE8FA",
+      isOff: isScreenShareEnabled,
+      onClick: toggleScreenShare,
+    },
+    {
+      id: "chat",
+      title: "Chat",
+      icon: <IoChatbubbleEllipsesOutline />,
+      gradientFrom: "#FF9966",
+      gradientTo: "#FF5E62",
+      isOff: showChat,
+      onClick: () => setShowChat((prev) => !prev),
+    },
+    {
+      id: "end-call",
+      title: "End Call",
+      icon: <IoCallOutline />,
+      gradientFrom: "#FF416C",
+      gradientTo: "#FF4B2B",
+      onClick: leaveRoom,
+    },
+  ];
+
   return (
     <div className="room-wrapper">
       <header className="room-header">
@@ -236,7 +294,7 @@ const InterviewerLayout = ({ roomName, name }: { roomName: string; name: string 
             <span>{copiedLink ? "Copied!" : "Invite link"}</span>
           </button>
         </div>
-        
+
         <div className="header-center">
           <h2 className="room-name">{roomName}</h2>
         </div>
@@ -399,42 +457,7 @@ const InterviewerLayout = ({ roomName, name }: { roomName: string; name: string 
       </main>
 
       <footer className="room-footer">
-        <div className="floating-dock">
-          <button
-            className={"control-btn" + (isMicrophoneEnabled ? " active" : " inactive")}
-            onClick={toggleMic}
-            title={isMicrophoneEnabled ? "Mute" : "Unmute"}
-          >
-            {isMicrophoneEnabled ? <Mic size={20} /> : <MicOff size={20} />}
-          </button>
-          <button
-            className={"control-btn" + (isCameraEnabled ? " active" : " inactive")}
-            onClick={toggleCam}
-            title={isCameraEnabled ? "Camera Off" : "Camera On"}
-          >
-            {isCameraEnabled ? <Video size={20} /> : <VideoOff size={20} />}
-          </button>
-          <button
-            className={"control-btn" + (isScreenShareEnabled ? " screen-active" : " active")}
-            onClick={toggleScreenShare}
-            title={isScreenShareEnabled ? "Stop Sharing" : "Share Screen"}
-          >
-            <Monitor size={20} />
-          </button>
-          <button
-            className={`control-btn ai-toggle ${showAiDrawer ? "ai-active" : ""}`}
-            onClick={() => setShowAiDrawer(!showAiDrawer)}
-            title="Optional AI Suggested Questions"
-          >
-            <Sparkles size={20} />
-          </button>
-          <button className="control-btn chat" title="Chat">
-            <MessageSquare size={20} />
-          </button>
-          <button className="control-btn leave" onClick={leaveRoom} title="Leave">
-            <PhoneOff size={20} />
-          </button>
-        </div>
+        <GradientMenu items={controlItems} />
       </footer>
     </div>
   );

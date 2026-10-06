@@ -1,0 +1,18 @@
+.gm-list { display: flex; align-items: center; justify-content: center; gap: 12px; list-style: none; margin: 0; padding: 0; }
+.gm-btn { position: relative; isolation: isolate; display: flex; align-items: center; justify-content: center; width: 48px; height: 48px; padding: 0; border: none; border-radius: 9999px; background: #fff; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.25); cursor: pointer; transition: all 0.5s; }
+.gm-bg { position: absolute; inset: 0; border-radius: 9999px; background: linear-gradient(45deg, var(--gradient-from), var(--gradient-to)); opacity: 0; transition: all 0.5s; }
+.gm-bg.is-off { opacity: 1; }
+.gm-glow { position: absolute; left: 0; right: 0; top: 10px; height: 100%; border-radius: 9999px; background: linear-gradient(45deg, var(--gradient-from), var(--gradient-to)); filter: blur(15px); opacity: 0; z-index: -1; transition: all 0.5s; }
+.gm-icon { position: relative; z-index: 1; display: flex; font-size: 24px; color: #6b7280; transition: all 0.5s; }
+.gm-icon.is-off { color: #fff; }
+.gm-title { position: absolute; display: none; transform: scale(0); color: #fff; font-size: 14px; letter-spacing: 0.025em; text-transform: uppercase; white-space: nowrap; transition: all 0.5s 0.15s; }
+.gm-btn:hover .gm-bg, .gm-btn:focus-visible .gm-bg { opacity: 1; }
+.gm-btn:hover .gm-glow { opacity: 0.5; }
+@media (min-width: 640px) {
+  .gm-list { gap: 24px; }
+  .gm-btn { width: 60px; height: 60px; }
+  .gm-btn:hover, .gm-btn:focus-visible { width: 150px; box-shadow: none; }
+  .gm-btn:hover .gm-icon, .gm-btn:focus-visible .gm-icon { transform: scale(0); }
+  .gm-title { display: block; }
+  .gm-btn:hover .gm-title, .gm-btn:focus-visible .gm-title { transform: scale(1); }
+}

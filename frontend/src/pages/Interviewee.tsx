@@ -11,12 +11,22 @@ import {
 } from "@livekit/components-react";
 import { Track } from "livekit-client";
 import "@livekit/components-styles";
-import { io, Socket } from "socket.io-client";
+import { io, type Socket } from "socket.io-client";
 import { BACKEND_URL } from "../config";
 import "../style/InterviewRoom.css";
 import "../style/Interviewee.css";
 import AudioCapture from "../audio/AudioCapture";
-import { Mic, MicOff, Video, VideoOff, Monitor, MessageSquare, PhoneOff, Users, Copy, Check, HelpCircle } from "lucide-react";
+import { Users, Copy, Check, HelpCircle } from "lucide-react";
+import GradientMenu, { type ControlItem } from "../components/GradientMenu";
+import {
+  IoMicOutline,
+  IoMicOffOutline,
+  IoVideocamOutline,
+  IoVideocamOffOutline,
+  IoDesktopOutline,
+  IoChatbubbleEllipsesOutline,
+  IoCallOutline,
+} from "react-icons/io5";
 
 const socket: Socket = io(BACKEND_URL, {
   auth: { token: localStorage.getItem("token") },
@@ -33,6 +43,7 @@ const IntervieweeLayout = ({ roomName, name }: { roomName: string; name: string 
 
   const [currentQuestion, setCurrentQuestion] = useState<string | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [showChat, setShowChat] = useState(false);
 
   // Audio PCM capture setup
   useEffect(() => {
@@ -121,6 +132,53 @@ const IntervieweeLayout = ({ roomName, name }: { roomName: string; name: string 
   const toggleMic = () => localParticipant.setMicrophoneEnabled(!isMicrophoneEnabled);
   const toggleCam = () => localParticipant.setCameraEnabled(!isCameraEnabled);
   const toggleScreenShare = () => localParticipant.setScreenShareEnabled(!isScreenShareEnabled);
+
+  const controlItems: ControlItem[] = [
+    {
+      id: "mic",
+      title: isMicrophoneEnabled ? "Mute" : "Unmute",
+      icon: isMicrophoneEnabled ? <IoMicOutline /> : <IoMicOffOutline />,
+      gradientFrom: "#a955ff",
+      gradientTo: "#ea51ff",
+      isOff: !isMicrophoneEnabled,
+      onClick: toggleMic,
+    },
+    {
+      id: "video",
+      title: isCameraEnabled ? "Camera Off" : "Camera On",
+      icon: isCameraEnabled ? <IoVideocamOutline /> : <IoVideocamOffOutline />,
+      gradientFrom: "#56CCF2",
+      gradientTo: "#2F80ED",
+      isOff: !isCameraEnabled,
+      onClick: toggleCam,
+    },
+    {
+      id: "screen",
+      title: "Share Screen",
+      icon: <IoDesktopOutline />,
+      gradientFrom: "#80FF72",
+      gradientTo: "#7EE8FA",
+      isOff: isScreenShareEnabled,
+      onClick: toggleScreenShare,
+    },
+    {
+      id: "chat",
+      title: "Chat",
+      icon: <IoChatbubbleEllipsesOutline />,
+      gradientFrom: "#FF9966",
+      gradientTo: "#FF5E62",
+      isOff: showChat,
+      onClick: () => setShowChat((prev) => !prev),
+    },
+    {
+      id: "end-call",
+      title: "End Call",
+      icon: <IoCallOutline />,
+      gradientFrom: "#FF416C",
+      gradientTo: "#FF4B2B",
+      onClick: leaveRoom,
+    },
+  ];
 
   return (
     <div className="room-wrapper">
@@ -219,35 +277,7 @@ const IntervieweeLayout = ({ roomName, name }: { roomName: string; name: string 
       </main>
 
       <footer className="room-footer">
-        <div className="floating-dock">
-          <button
-            className={"control-btn" + (isMicrophoneEnabled ? " active" : " inactive")}
-            onClick={toggleMic}
-            title={isMicrophoneEnabled ? "Mute" : "Unmute"}
-          >
-            {isMicrophoneEnabled ? <Mic size={20} /> : <MicOff size={20} />}
-          </button>
-          <button
-            className={"control-btn" + (isCameraEnabled ? " active" : " inactive")}
-            onClick={toggleCam}
-            title={isCameraEnabled ? "Camera Off" : "Camera On"}
-          >
-            {isCameraEnabled ? <Video size={20} /> : <VideoOff size={20} />}
-          </button>
-          <button
-            className={"control-btn" + (isScreenShareEnabled ? " screen-active" : " active")}
-            onClick={toggleScreenShare}
-            title={isScreenShareEnabled ? "Stop Sharing" : "Share Screen"}
-          >
-            <Monitor size={20} />
-          </button>
-          <button className="control-btn chat" title="Chat">
-            <MessageSquare size={20} />
-          </button>
-          <button className="control-btn leave" onClick={leaveRoom} title="Leave">
-            <PhoneOff size={20} />
-          </button>
-        </div>
+        <GradientMenu items={controlItems} />
       </footer>
     </div>
   );
